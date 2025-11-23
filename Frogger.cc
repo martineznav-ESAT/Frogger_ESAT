@@ -23,13 +23,13 @@ struct PuntoCoord{
 
 struct Colision{
     // P1 Tambien sirve como ubicación
-    PuntoCoord P1;
-    PuntoCoord P2;
+    PuntoCoord P1 = {0.0f,0.0f};
+    PuntoCoord P2 = {0.0f,0.0f};
 };
 
 struct Sprite{
     esat::SpriteHandle imagen;
-    Colision collider = {0.0f,0.0f};
+    Colision collider;
     // tipoAnimacion -> El set de animaciones a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
@@ -41,7 +41,7 @@ struct Sprite{
 /* GLOBALES */
 // Constantes
 //-- Tamaños ventanas
-const int VENTANA_X = 588, VENTANA_Y = 720;
+const int VENTANA_X = 1008, VENTANA_Y = 720;
 
 //-- Fuentes
 const unsigned char ALTURA_FUENTE = 19;
@@ -68,7 +68,8 @@ double current_time,last_time;
 
 
 //-- SpriteSheets
-//Recursos/Imagenes/Sprites
+//Recursos/Imagenes/SpriteSheets
+esat::SpriteHandle AnimMuerteSheet;
 
 //-- Fin SpriteSheets
 
@@ -119,6 +120,7 @@ int esat::main(int argc, char **argv) {
     esat::WindowInit(VENTANA_X,VENTANA_Y);
     WindowSetMouseVisibility(true);
 
+    CargarSprites();
     //Declaración de la fuente
 
     
