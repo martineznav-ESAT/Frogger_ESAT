@@ -1,5 +1,4 @@
-﻿//RAMA 1
-#include <esat/window.h>
+﻿#include <esat/window.h>
 #include <esat/draw.h>
 #include <esat/input.h>
 #include <esat/time.h>
