@@ -1,4 +1,5 @@
-﻿#include <esat/window.h>
+﻿//RAMA 1
+#include <esat/window.h>
 #include <esat/draw.h>
 #include <esat/input.h>
 #include <esat/time.h>
@@ -221,7 +222,6 @@ int esat::main(int argc, char **argv) {
         esat::DrawEnd();      
         esat::WindowFrame();
         //Fin dibujado de pantalla
-        
         ControlFPS();
     }
 
