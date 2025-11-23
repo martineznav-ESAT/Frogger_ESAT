@@ -44,7 +44,7 @@ struct SpriteSheet{
 struct Sprite{
     esat::SpriteHandle imagen;
     Colision collider;
-    // tipoAnimacion -> El set de indiceAnimes a usar (Fila en spritesheet);
+    // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
 };
