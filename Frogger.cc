@@ -9,11 +9,32 @@
 #include <stdio.h>
 
 /* Enums */
+enum Pantalla {
+    INICIO,
+    MENU,
+    JUEGO
+};
+
 enum Direccion {
-  ARRIBA,
-  DERECHA,
-  ABAJO,
-  IZQUIERDA
+    ARRIBA,
+    DERECHA,
+    ABAJO,
+    IZQUIERDA
+};
+
+// Enumerador que indicará que tipo 
+// de objeto es a ciertas funciones
+enum TipoObjeto{
+    RANAJUGADOR_O,
+    RANABONUS_O,
+    VEHICULO_O,
+    TRONCO_O,
+    COCODRILO_CUERPO_O,
+    COCODRILO_BOCA_O,
+    NUTRIA_O,
+    SERPIENTE_O,
+    MOSCA_O,
+    CROC_O
 };
 
 /* STRUCTS */
@@ -38,7 +59,7 @@ struct SpriteSheet{
     //Tamaño de los sprites
     int spriteWidth,spriteHeight;
     //Array con las coordenadas
-    int spriteSheetCoords[]; 
+    int *spriteSheetCoords; 
 };
 
 struct Sprite{
@@ -49,11 +70,18 @@ struct Sprite{
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
 };
 
+struct Rana{
+	TipoObjeto tipoObjeto;
+	Direccion direccion;
+	Sprite sprite;
+    bool isMoving = false;
+    int distanciaSalto;
+    float duracionSalto;
+};
 
 /* FIN STRUCTS */
 
 /* GLOBALES */
-// Constantes
 //-- Tamaños ventanas
 const int VENTANA_X = 1008, VENTANA_Y = 720;
 
@@ -63,33 +91,30 @@ const unsigned char ALTURA_FUENTE = 19;
 //-- FPS
 const unsigned char FPS=60;
 
-//-- UI
-
-//-- Fin UI
-
-// Fin Constantes
-
-
-// Variables
 //-- Tiempos para FPS
 double current_time,last_time;
 
 
 //-- UI
-
+Pantalla pantallaActual = JUEGO;
 
 //-- Fin UI
 
 
 //-- SpriteSheets - Se declara todo lo necesario por SpriteSheet para funcionar durante la ejecución
-//Recursos/Imagenes/SpriteSheets
+//SpriteSheets
+SpriteSheet animMuerteSpriteSheet;
+SpriteSheet ranaBaseSpriteSheet;
+SpriteSheet ranaRosaSpriteSheet;
+SpriteSheet ranaRojaSpriteSheet;
 
-//SpriteSheet
-SpriteSheet animMuerteSheet;
 
 //-- Fin SpriteSheets
 
-Sprite muerte {0,{0.0f,0.0f},0,0};
+//-- Jugadores
+const unsigned char maxJugadores = 2;
+unsigned char jugadoresActuales = 2;
+Rana jugadores[maxJugadores];
 
 // Fin Variables
 /* FIN GLOBALES */
@@ -132,28 +157,70 @@ int GetColumnaIndice(int indice, int columnasTotales){
 // Calcula e inicializa en spriteSheetCoords las coordenadas X e Y de cada Sprite 
 // dentro del SpriteSheet para uso futuro durante ejecución
 void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet){
-    for(int i = 0; i < (*spriteSheet).tiposAnim; i++){
-        for(int j = 0, k = 0; j < (*spriteSheet).coordsAnim; j+=2, k++){
-            //Coordenada X
-            (*spriteSheet).spriteSheetCoords[GetIndiceArray(i,(*spriteSheet).coordsAnim,j)] = (*spriteSheet).spriteWidth*k;
-            //Coordenada Y
-            (*spriteSheet).spriteSheetCoords[GetIndiceArray(i,(*spriteSheet).coordsAnim,j+1)] = (*spriteSheet).spriteHeight*i;
+    //Reserva en el spriteSheetCoords correspondiente los espacios indicados por el totalCoordsAnim correspondiente
+    (*spriteSheet).spriteSheetCoords = new int[(*spriteSheet).totalCoordsAnim];
+    if ((*spriteSheet).spriteSheetCoords == NULL) {
+        printf("Error al reservar memoria\n");
+    }else{
+        //Si puede reservar la memoria sin problemas, inicializa las coordenadas
+        for(int i = 0; i < (*spriteSheet).tiposAnim; i++){
+            for(int j = 0, k = 0; j < (*spriteSheet).coordsAnim; j+=2, k++){
+                //Coordenada X
+                (*spriteSheet).spriteSheetCoords[GetIndiceArray(i,(*spriteSheet).coordsAnim,j)] = (*spriteSheet).spriteWidth*k;
+                //Coordenada Y
+                (*spriteSheet).spriteSheetCoords[GetIndiceArray(i,(*spriteSheet).coordsAnim,j+1)] = (*spriteSheet).spriteHeight*i;
+            }
         }
     }
 }
 
 // Inicializa todos los valores de todos los SpriteSheets para ser utilizables durante el resto de la ejecución del programa
+//
+// Se guardan en sus structs correspondientes para facilitar su uso y legibilidad durante el proyecto
+// Los archivos de hojas de sprite en .png se ubican en ./Recursos/Imagenes/SpriteSheets/*.png
+
 void InicializarSpriteSheets(){
-    animMuerteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/AnimMuerteSheet.png");
-    animMuerteSheet.tiposAnim = 1;
-    animMuerteSheet.indicesAnim = 7;
-    animMuerteSheet.coordsAnim = animMuerteSheet.indicesAnim*2;
-    animMuerteSheet.totalCoordsAnim = animMuerteSheet.tiposAnim * animMuerteSheet.coordsAnim;
-    animMuerteSheet.spriteWidth = (esat::SpriteWidth(animMuerteSheet.spriteSheet)/animMuerteSheet.indicesAnim);
-    animMuerteSheet.spriteHeight = (esat::SpriteHeight(animMuerteSheet.spriteSheet)/animMuerteSheet.tiposAnim);
-    InicializarCoordsSpriteSheet(&animMuerteSheet);
+    //Inicializa el SpriteSheet de la animación de muerte del jugador
+    // animMuerteSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/AnimMuerteSheet.png");
+    // animMuerteSpriteSheet.tiposAnim = 1;
+    // animMuerteSpriteSheet.indicesAnim = 7;
+    // animMuerteSpriteSheet.coordsAnim = animMuerteSpriteSheet.indicesAnim*2;
+    // animMuerteSpriteSheet.totalCoordsAnim = animMuerteSpriteSheet.tiposAnim * animMuerteSpriteSheet.coordsAnim;
+    // animMuerteSpriteSheet.spriteWidth = (esat::SpriteWidth(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.indicesAnim);
+    // animMuerteSpriteSheet.spriteHeight = (esat::SpriteHeight(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.tiposAnim);
+    // InicializarCoordsSpriteSheet(&animMuerteSpriteSheet);
+
+    // Inicializa los SpriteSheets de las ranas en todos sus colores
+    ranaBaseSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaBaseSpriteSheet.png");
+    ranaBaseSpriteSheet.tiposAnim = 4;
+    ranaBaseSpriteSheet.indicesAnim = 2;
+    ranaBaseSpriteSheet.coordsAnim = ranaBaseSpriteSheet.indicesAnim*2;
+    ranaBaseSpriteSheet.totalCoordsAnim = ranaBaseSpriteSheet.tiposAnim * ranaBaseSpriteSheet.coordsAnim;
+    ranaBaseSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaBaseSpriteSheet.spriteSheet)/ranaBaseSpriteSheet.indicesAnim);
+    ranaBaseSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaBaseSpriteSheet.spriteSheet)/ranaBaseSpriteSheet.tiposAnim);
+    InicializarCoordsSpriteSheet(&ranaBaseSpriteSheet);
+
+    // ranaRosaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRosaSpriteSheet.png");
+    // ranaRosaSpriteSheet.tiposAnim = 4;
+    // ranaRosaSpriteSheet.indicesAnim = 2;
+    // ranaRosaSpriteSheet.coordsAnim = ranaRosaSpriteSheet.indicesAnim*2;
+    // ranaRosaSpriteSheet.totalCoordsAnim = ranaRosaSpriteSheet.tiposAnim * ranaRosaSpriteSheet.coordsAnim;
+    // ranaRosaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.indicesAnim);
+    // ranaRosaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.tiposAnim);
+    // InicializarCoordsSpriteSheet(&ranaRosaSpriteSheet);
+
+    // ranaRojaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
+    // ranaRojaSpriteSheet.tiposAnim = 4;
+    // ranaRojaSpriteSheet.indicesAnim = 2;
+    // ranaRojaSpriteSheet.coordsAnim = ranaRojaSpriteSheet.indicesAnim*2;
+    // ranaRojaSpriteSheet.totalCoordsAnim = ranaRojaSpriteSheet.tiposAnim * ranaRojaSpriteSheet.coordsAnim;
+    // ranaRojaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.indicesAnim);
+    // ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
+    // InicializarCoordsSpriteSheet(&ranaRojaSpriteSheet);
+    
 }
 
+//*** MANEJO DE SPRITES/SPRITESHEETS ***/
 // Recupera el sprite del tipoAnimacion(Fila) e indiceAnimacion(Columna) de una spriteSheet
 esat::SpriteHandle GetSpriteFromSheet(SpriteSheet *spriteSheet, int tipoAnimacion, int indiceAnimacion){
     return (esat::SubSprite(
@@ -165,42 +232,153 @@ esat::SpriteHandle GetSpriteFromSheet(SpriteSheet *spriteSheet, int tipoAnimacio
     ));
 }
 
+// ** USAR SOLO CUANDO SE DESEA CAMBIAR DE SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR **
 // Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen
-// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que tiene el Sprite.
+// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que 
+// tiene el Sprite y lo dibuja
 //
 // Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
 // para prevernir leaks de memoria
-void AsignarYDibujarNuevoSprite(SpriteSheet *spriteSheet, Sprite *sprite){
+void ActualizarSprite(SpriteSheet *spriteSheet, Sprite *sprite){
     esat::SpriteHandle buffer = (*sprite).imagen;
     (*sprite).imagen = GetSpriteFromSheet(&(*spriteSheet),(*sprite).tipoAnimacion,(*sprite).indiceAnimacion);
-    esat::DrawSprite((*sprite).imagen,(*sprite).collider.P1.x,(*sprite).collider.P1.y);
     if(buffer != NULL){
         esat::SpriteRelease(buffer);
     }
 }
 
+// ** USAR SOLO CUANDO SE DESEA AVANZAR EL INDICE DE ANIMACIÓN Y ACTUALIZAR EL SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR **
 // Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen
-// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que tiene el Sprite.
+// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que 
+// tiene el Sprite, lo dibuja y libera la memoria de la imagen anterior.
 //
 // Después, avanza el indice de animación del sprite en +2 para que el siguiente Sprite que guarde sea el correspondiente
 // al siguiente en su animación. Si el indice es mayor o igual al total de coordenadas, lo reinicia a 0 para volver a
 // comenzar la animación
-//
-// Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
-// para prevernir leaks de memoria
-void AvanzarYDibujarSpriteAnimado(SpriteSheet *spriteSheet, Sprite *sprite){
-    AsignarYDibujarNuevoSprite(&(*spriteSheet), &(*sprite));
-    // Avanza
-    if((*sprite).indiceAnimacion < (*spriteSheet).totalCoordsAnim){
-        (*sprite).indiceAnimacion += 2;
-    }else{
+void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, Sprite *sprite){
+    ActualizarSprite(&(*spriteSheet), &(*sprite));
+    // Avanza indice de animación. 
+    (*sprite).indiceAnimacion += 2;
+    // Si despues de sumar 2, el indice es mayor o igual a las columnas totales de coordenadas
+    // de animacion, lo instancia a 0 para reiniciar la animacion
+    if((*sprite).indiceAnimacion >= (*spriteSheet).coordsAnim){
         (*sprite).indiceAnimacion = 0;
     }
-
-    
 }
 
+void InicializarJugadores(){
+    for(int i = 0; i < jugadoresActuales; i++){
+        jugadores[i].tipoObjeto = RANAJUGADOR_O;
+        jugadores[i].direccion = ARRIBA;
+        jugadores[i].sprite.tipoAnimacion = 0;
+        jugadores[i].sprite.indiceAnimacion = 0;
+        jugadores[i].sprite.collider.P1 = {
+            i*50.0F,0.0F
+        };
+        jugadores[i].sprite.collider.P2 = {
+            jugadores[i].sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
+            jugadores[i].sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
+        };
+        jugadores[i].isMoving = false;
+        ActualizarSprite(&ranaBaseSpriteSheet,&jugadores[i].sprite);
+    }
+}
+
+
+void DetectarControles(){
+    if(pantallaActual == JUEGO){
+        //CONTROLES RANA_J1
+        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
+            jugadores[0].direccion = ARRIBA;
+            jugadores[0].isMoving = true;
+        }
+        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
+            jugadores[0].direccion = DERECHA;
+            jugadores[0].isMoving = true;
+        }
+        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
+            jugadores[0].direccion = ABAJO;
+            jugadores[0].isMoving = true;
+        }
+        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
+            jugadores[0].direccion = IZQUIERDA;
+            jugadores[0].isMoving = true;
+        }
+    }
+
+    //PROTOTIPADO
+    if(esat::IsKeyDown('1')){
+        printf("INICIO\n");
+        pantallaActual = INICIO;
+    }
+    if(esat::IsKeyDown('2')){
+        printf("MENU\n");
+        pantallaActual = MENU;
+    }
+    if(esat::IsKeyDown('3')){
+        printf("JUEGO\n");
+        pantallaActual = JUEGO;
+    }
+}
+
+//*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
+void DibujarJugadores(){
+    for(int i = 0; i < jugadoresActuales; i++){
+        if(jugadores[i].isMoving){
+            //PROTOTIPADO
+            jugadores[i].sprite.tipoAnimacion = jugadores[i].direccion;
+            ActualizarSprite(&ranaBaseSpriteSheet, &jugadores[i].sprite);
+            jugadores[i].isMoving = false;
+        }
+        esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
+    }
+}
+
+void DibujarJuego(){
+    DibujarJugadores();
+}
+
+void DibujarEntorno(){
+    // DibujarCabecera()
+    switch(pantallaActual){
+        case INICIO:
+            break;
+        case MENU:
+            break;
+        case JUEGO:
+            DibujarJuego();
+            break;
+    }
+    // DibujarPie();
+}
+
+//*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
+void LiberarSpriteSheets(){
+    // Los delete[] liberan la memoria de los arrays de coordenadas de los spriteSheets 
+    esat::SpriteRelease(animMuerteSpriteSheet.spriteSheet);
+    delete[] animMuerteSpriteSheet.spriteSheetCoords;
+    esat::SpriteRelease(ranaBaseSpriteSheet.spriteSheet);
+    delete[] ranaBaseSpriteSheet.spriteSheetCoords;
+    esat::SpriteRelease(ranaRosaSpriteSheet.spriteSheet);
+    delete[] ranaRosaSpriteSheet.spriteSheetCoords;
+    esat::SpriteRelease(ranaRojaSpriteSheet.spriteSheet);
+    delete[] ranaRojaSpriteSheet.spriteSheetCoords;
+}
+void LiberarSpritesJugadores(){
+    for(int i = 0; i < maxJugadores; i++){
+        if(jugadores[i].sprite.imagen != NULL){
+            esat::SpriteRelease(jugadores[i].sprite.imagen);
+        }
+    }
+}
+//Libera de memoria todos los spriteHandle inicializados
+void LiberarSprites(){
+    LiberarSpriteSheets();
+    LiberarSpritesJugadores();
+}
 /* FIN FUNCIONALIDADES*/
+
+/* INICIO MAIN */
 int esat::main(int argc, char **argv) {
     GenerarSemillaAleatoria();
 
@@ -208,6 +386,7 @@ int esat::main(int argc, char **argv) {
     WindowSetMouseVisibility(true);
 
     InicializarSpriteSheets();
+    InicializarJugadores();
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
         last_time = esat::Time(); 
@@ -216,15 +395,16 @@ int esat::main(int argc, char **argv) {
         esat::DrawBegin();
         esat::DrawClear(0,0,0);
 
-        AvanzarYDibujarSpriteAnimado(&animMuerteSheet,&muerte);
+        DetectarControles();
+        DibujarEntorno();
 
         esat::DrawEnd();      
         esat::WindowFrame();
         //Fin dibujado de pantalla
-        
         ControlFPS();
     }
 
+    LiberarSprites();
     esat::WindowDestroy();
     return 0;  
 }
