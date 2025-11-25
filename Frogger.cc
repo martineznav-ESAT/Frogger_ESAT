@@ -72,9 +72,10 @@ struct Rana{
 	TipoObjeto tipoObjeto;
 	Direccion direccion;
 	Sprite sprite;
-    bool isMoving = false;
+    bool isJumping = false;
     int distanciaSalto;
-    float duracionSalto;
+    //Tiempos en milisegunos/ms
+    float duracionSalto, tempSalto;
 };
 
 /* FIN STRUCTS */
@@ -126,6 +127,26 @@ void ControlFPS(){
     do{
         current_time = esat::Time();
     }while((current_time-last_time)<=1000.0/FPS);
+}
+
+// Actua como "trigger" donde:
+// Si el tiempo actual de ejecución menos el temporizador pasado 
+// por parametro es mayor a 'x' entonces permitirá acceso 
+// (Todo en milesimas de segundo)
+bool HacerCadaX(float *temp, float x){
+    bool isAccesible = false;
+    // printf("LOG--- Valores funcion HacerCadaX()\n");
+    // printf("LOG--- T.Actual    Temp    Contador    Limite\n");
+    // printf("LOG--- %14.10f | %14.10f | %14.10f |%14.10f\n",last_time,(*temp), last_time - (*temp),x);
+    isAccesible = last_time - (*temp) > x;
+    if(isAccesible){
+        *temp = last_time;
+    }
+    return isAccesible;
+}
+
+bool HacerDuranteX(float *temp, float x){
+    return(!HacerCadaX(&(*temp),x));
 }
 
 //-- Randoms
@@ -272,30 +293,47 @@ void InicializarJugadores(){
             jugadores[i].sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
             jugadores[i].sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
         };
-        jugadores[i].isMoving = false;
+        jugadores[i].isJumping = false;
+        jugadores[i].distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
+        jugadores[i].duracionSalto = 500;
+        jugadores[i].tempSalto = 0;
+
         ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
     }
 }
 
-
+//*** DETECCIÓN INPUT DEL JUGADOR***/
 void DetectarControles(){
     if(pantallaActual == JUEGO){
         //CONTROLES RANA_J1
         if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
             jugadores[0].direccion = ARRIBA;
-            jugadores[0].isMoving = true;
+            jugadores[0].isJumping = true;
+            jugadores[0].tempSalto = last_time;
+            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
+            printf("jugadores[0].sprite.tipoAnimacion %d\n",jugadores[0].sprite.tipoAnimacion);
+            printf("jugadores[0].sprite.indiceAnimacion %d\n",jugadores[0].sprite.indiceAnimacion);
         }
         if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
             jugadores[0].direccion = DERECHA;
-            jugadores[0].isMoving = true;
+            jugadores[0].isJumping = true;
+            jugadores[0].tempSalto = last_time;
+            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
+            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
         }
         if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
             jugadores[0].direccion = ABAJO;
-            jugadores[0].isMoving = true;
+            jugadores[0].isJumping = true;
+            jugadores[0].tempSalto = last_time;
+            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
+            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
         }
         if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
             jugadores[0].direccion = IZQUIERDA;
-            jugadores[0].isMoving = true;
+            jugadores[0].isJumping = true;
+            jugadores[0].tempSalto = last_time;
+            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
+            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
         }
     }
 
@@ -314,15 +352,34 @@ void DetectarControles(){
     }
 }
 
+/*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
+void ActualizarEstadoJugadores(){
+    for(int i = 0; i < jugadoresActuales; i++){
+        if(jugadores[i].isJumping){
+            printf("jugadores[i].tempSalto %f\n",jugadores[i].tempSalto);
+            printf("last_time %f\n",last_time);
+            if(jugadores[i].tempSalto == last_time){
+                printf("Asdas");
+                AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
+            }
+            if(HacerCadaX(&jugadores[i].tempSalto,jugadores[i].duracionSalto)){
+                jugadores[i].isJumping = false;
+                AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
+            }
+        }
+    }
+}
+
+void ActualizarEstadoJuego(){
+    //TO_DO
+    // DetectarColisiones();
+    ActualizarEstadoJugadores();
+}
+
+
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        if(jugadores[i].isMoving){
-            //PROTOTIPADO
-            jugadores[i].sprite.tipoAnimacion = jugadores[i].direccion;
-            ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
-            jugadores[i].isMoving = false;
-        }
         esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
     }
 }
@@ -384,7 +441,11 @@ int esat::main(int argc, char **argv) {
         esat::DrawBegin();
         esat::DrawClear(0,0,0);
 
+        //INPUT
         DetectarControles();
+        //UPDATE
+        ActualizarEstadoJuego();
+        //DRAW
         DibujarEntorno();
 
         esat::DrawEnd();      
