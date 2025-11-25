@@ -181,14 +181,14 @@ void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet){
 
 void InicializarSpriteSheets(){
     //Inicializa el SpriteSheet de la animación de muerte del jugador
-    // animMuerteSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/AnimMuerteSheet.png");
-    // animMuerteSpriteSheet.tiposAnim = 1;
-    // animMuerteSpriteSheet.indicesAnim = 7;
-    // animMuerteSpriteSheet.coordsAnim = animMuerteSpriteSheet.indicesAnim*2;
-    // animMuerteSpriteSheet.totalCoordsAnim = animMuerteSpriteSheet.tiposAnim * animMuerteSpriteSheet.coordsAnim;
-    // animMuerteSpriteSheet.spriteWidth = (esat::SpriteWidth(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.indicesAnim);
-    // animMuerteSpriteSheet.spriteHeight = (esat::SpriteHeight(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.tiposAnim);
-    // InicializarCoordsSpriteSheet(&animMuerteSpriteSheet);
+    animMuerteSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/AnimMuerteSpriteSheet.png");
+    animMuerteSpriteSheet.tiposAnim = 1;
+    animMuerteSpriteSheet.indicesAnim = 7;
+    animMuerteSpriteSheet.coordsAnim = animMuerteSpriteSheet.indicesAnim*2;
+    animMuerteSpriteSheet.totalCoordsAnim = animMuerteSpriteSheet.tiposAnim * animMuerteSpriteSheet.coordsAnim;
+    animMuerteSpriteSheet.spriteWidth = (esat::SpriteWidth(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.indicesAnim);
+    animMuerteSpriteSheet.spriteHeight = (esat::SpriteHeight(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.tiposAnim);
+    InicializarCoordsSpriteSheet(&animMuerteSpriteSheet);
 
     // Inicializa los SpriteSheets de las ranas en todos sus colores
     ranaBaseSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaBaseSpriteSheet.png");
@@ -200,23 +200,23 @@ void InicializarSpriteSheets(){
     ranaBaseSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaBaseSpriteSheet.spriteSheet)/ranaBaseSpriteSheet.tiposAnim);
     InicializarCoordsSpriteSheet(&ranaBaseSpriteSheet);
 
-    // ranaRosaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRosaSpriteSheet.png");
-    // ranaRosaSpriteSheet.tiposAnim = 4;
-    // ranaRosaSpriteSheet.indicesAnim = 2;
-    // ranaRosaSpriteSheet.coordsAnim = ranaRosaSpriteSheet.indicesAnim*2;
-    // ranaRosaSpriteSheet.totalCoordsAnim = ranaRosaSpriteSheet.tiposAnim * ranaRosaSpriteSheet.coordsAnim;
-    // ranaRosaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.indicesAnim);
-    // ranaRosaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.tiposAnim);
-    // InicializarCoordsSpriteSheet(&ranaRosaSpriteSheet);
+    ranaRosaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRosaSpriteSheet.png");
+    ranaRosaSpriteSheet.tiposAnim = 4;
+    ranaRosaSpriteSheet.indicesAnim = 2;
+    ranaRosaSpriteSheet.coordsAnim = ranaRosaSpriteSheet.indicesAnim*2;
+    ranaRosaSpriteSheet.totalCoordsAnim = ranaRosaSpriteSheet.tiposAnim * ranaRosaSpriteSheet.coordsAnim;
+    ranaRosaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.indicesAnim);
+    ranaRosaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.tiposAnim);
+    InicializarCoordsSpriteSheet(&ranaRosaSpriteSheet);
 
-    // ranaRojaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
-    // ranaRojaSpriteSheet.tiposAnim = 4;
-    // ranaRojaSpriteSheet.indicesAnim = 2;
-    // ranaRojaSpriteSheet.coordsAnim = ranaRojaSpriteSheet.indicesAnim*2;
-    // ranaRojaSpriteSheet.totalCoordsAnim = ranaRojaSpriteSheet.tiposAnim * ranaRojaSpriteSheet.coordsAnim;
-    // ranaRojaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.indicesAnim);
-    // ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
-    // InicializarCoordsSpriteSheet(&ranaRojaSpriteSheet);
+    ranaRojaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
+    ranaRojaSpriteSheet.tiposAnim = 4;
+    ranaRojaSpriteSheet.indicesAnim = 2;
+    ranaRojaSpriteSheet.coordsAnim = ranaRojaSpriteSheet.indicesAnim*2;
+    ranaRojaSpriteSheet.totalCoordsAnim = ranaRojaSpriteSheet.tiposAnim * ranaRojaSpriteSheet.coordsAnim;
+    ranaRojaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.indicesAnim);
+    ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
+    InicializarCoordsSpriteSheet(&ranaRojaSpriteSheet);
     
 }
 
