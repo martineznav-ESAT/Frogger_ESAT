@@ -239,7 +239,7 @@ esat::SpriteHandle GetSpriteFromSheet(SpriteSheet *spriteSheet, int tipoAnimacio
 //
 // Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
 // para prevernir leaks de memoria
-void AsignarNuevoSprite(SpriteSheet *spriteSheet, Sprite *sprite){
+void ActualizarSprite(SpriteSheet *spriteSheet, Sprite *sprite){
     esat::SpriteHandle buffer = (*sprite).imagen;
     (*sprite).imagen = GetSpriteFromSheet(&(*spriteSheet),(*sprite).tipoAnimacion,(*sprite).indiceAnimacion);
     if(buffer != NULL){
@@ -255,8 +255,8 @@ void AsignarNuevoSprite(SpriteSheet *spriteSheet, Sprite *sprite){
 // Después, avanza el indice de animación del sprite en +2 para que el siguiente Sprite que guarde sea el correspondiente
 // al siguiente en su animación. Si el indice es mayor o igual al total de coordenadas, lo reinicia a 0 para volver a
 // comenzar la animación
-void AvanzarYDibujarSpriteAnimado(SpriteSheet *spriteSheet, Sprite *sprite){
-    AsignarNuevoSprite(&(*spriteSheet), &(*sprite));
+void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, Sprite *sprite){
+    ActualizarSprite(&(*spriteSheet), &(*sprite));
     // Avanza indice de animación. 
     (*sprite).indiceAnimacion += 2;
     // Si despues de sumar 2, el indice es mayor o igual a las columnas totales de coordenadas
@@ -270,7 +270,7 @@ void InicializarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         jugadores[i].tipoObjeto = RANAJUGADOR_O;
         jugadores[i].direccion = ARRIBA;
-        jugadores[i].sprite.tipoAnimacion = 2;
+        jugadores[i].sprite.tipoAnimacion = 0;
         jugadores[i].sprite.indiceAnimacion = 0;
         jugadores[i].sprite.collider.P1 = {
             i*50.0F,0.0F
@@ -280,7 +280,7 @@ void InicializarJugadores(){
             jugadores[i].sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
         };
         jugadores[i].isMoving = false;
-        jugadores[i].sprite.imagen = AsignarNuevoSprite(&ranaBaseSpriteSheet,jugadores[i].sprite.tipoAnimacion,jugadores[i].sprite.indiceAnimacion);
+        ActualizarSprite(&ranaBaseSpriteSheet,&jugadores[i].sprite);
     }
 }
 
@@ -327,7 +327,7 @@ void DibujarJugadores(){
         if(jugadores[i].isMoving){
             //PROTOTIPADO
             jugadores[i].sprite.tipoAnimacion = jugadores[i].direccion;
-            AsignarNuevoSprite(&ranaBaseSpriteSheet, &jugadores[i].sprite);
+            ActualizarSprite(&ranaBaseSpriteSheet, &jugadores[i].sprite);
             jugadores[i].isMoving = false;
         }
         esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
