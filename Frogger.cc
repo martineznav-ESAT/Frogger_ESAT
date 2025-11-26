@@ -386,7 +386,8 @@ void ActualizarEstadoJugadores(){
                 MoveCollider(&jugadores[i].sprite.collider, jugadores[i].direccion, jugadores[i].velocidadSalto);
             }else{
                 jugadores[i].isJumping = false;
-                AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
+                jugadores[i].sprite.indiceAnimacion = 0;
+                ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
             }
         }
     }
