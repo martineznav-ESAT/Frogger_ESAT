@@ -42,7 +42,7 @@ struct PuntoCoord{
     float x = 0, y = 0;
 };
 
-struct Colision{
+struct Collider{
     // P1 Tambien sirve como ubicación
     PuntoCoord P1 = {0.0f,0.0f};
     PuntoCoord P2 = {10.0f,10.0f};
@@ -62,7 +62,7 @@ struct SpriteSheet{
 
 struct Sprite{
     esat::SpriteHandle imagen;
-    Colision collider;
+    Collider collider;
     // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
@@ -75,14 +75,14 @@ struct Rana{
     bool isJumping = false;
     int distanciaSalto;
     //Tiempos en milisegunos/ms
-    float duracionSalto, tempSalto;
+    float duracionSalto, tempSalto, velocidadSalto;
 };
 
 /* FIN STRUCTS */
 
 /* GLOBALES */
 //-- Tamaños ventanas
-const int VENTANA_X = 1008, VENTANA_Y = 720;
+const int VENTANA_X = 672, VENTANA_Y = 768;
 
 //-- Fuentes
 const unsigned char ALTURA_FUENTE = 19;
@@ -116,7 +116,7 @@ int ranasSpriteSheet_Coords[16];
 
 //-- Jugadores
 const unsigned char maxJugadores = 2;
-unsigned char jugadoresActuales = 2;
+unsigned char jugadoresActuales = 1;
 Rana jugadores[maxJugadores];
 
 // Fin Variables
@@ -270,7 +270,6 @@ void ActualizarSprite(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite 
 // al siguiente en su animación. Si el indice es mayor o igual al total de coordenadas, lo reinicia a 0 para volver a
 // comenzar la animación
 void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite *sprite){
-    ActualizarSprite(&(*spriteSheet), spriteSheetCoords, &(*sprite));
     // Avanza indice de animación. 
     (*sprite).indiceAnimacion += 2;
     // Si despues de sumar 2, el indice es mayor o igual a las columnas totales de coordenadas
@@ -278,8 +277,42 @@ void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Spr
     if((*sprite).indiceAnimacion >= (*spriteSheet).coordsAnim){
         (*sprite).indiceAnimacion = 0;
     }
+    ActualizarSprite(&(*spriteSheet), spriteSheetCoords, &(*sprite));
 }
 
+// Actualiza las coordenadas de un Collider
+//   - *collider -> El collider a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
+//   - direccion -> Indica en que dirección se moverá
+//   - velocidad -> Indica la cantidad de pixeles que se moverá el collider en la direccion indicada
+void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
+    printf("COLLIDER\n");
+    printf("X = %f\n",(*collider).P1.x);
+    printf("Y = %f\n",(*collider).P1.y);
+    printf("Direccion = %d\n",direccion);
+    printf("Velocidad = %f\n",velocidad);
+    switch(direccion){
+        case ARRIBA:
+            (*collider).P1.y -= velocidad;
+            (*collider).P2.y -= velocidad;
+        break;
+        case DERECHA:
+            (*collider).P1.x += velocidad;
+            (*collider).P2.x += velocidad;
+        break;
+        case ABAJO:
+            (*collider).P1.y += velocidad;
+            (*collider).P2.y += velocidad;
+        break;
+        case IZQUIERDA:
+            (*collider).P1.x -= velocidad;
+            (*collider).P2.x -= velocidad;
+        break;
+    }
+}
+
+//*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
+// Instancia los valores por defecto de cada jugador
+// Pensado para utilizarse al inicio de cada partida
 void InicializarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         jugadores[i].tipoObjeto = RANAJUGADOR_O;
@@ -287,7 +320,7 @@ void InicializarJugadores(){
         jugadores[i].sprite.tipoAnimacion = 0;
         jugadores[i].sprite.indiceAnimacion = 0;
         jugadores[i].sprite.collider.P1 = {
-            i*50.0F,0.0F
+            VENTANA_X/2,VENTANA_Y/2
         };
         jugadores[i].sprite.collider.P2 = {
             jugadores[i].sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
@@ -295,45 +328,41 @@ void InicializarJugadores(){
         };
         jugadores[i].isJumping = false;
         jugadores[i].distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
-        jugadores[i].duracionSalto = 500;
+        jugadores[i].duracionSalto = 100;
+        jugadores[i].velocidadSalto = (jugadores[i].distanciaSalto/jugadores[i].duracionSalto)*10;
         jugadores[i].tempSalto = 0;
-
         ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
     }
 }
 
-//*** DETECCIÓN INPUT DEL JUGADOR***/
+//*** INICIO DE ACCIONES DE LOS OBJETOS ***//
+void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
+    (*rana).direccion = newDireccion;
+    (*rana).isJumping = true;
+    (*rana).tempSalto = last_time;
+    (*rana).sprite.tipoAnimacion = newDireccion;
+    AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+}
+
+//*** DETECCIÓN INPUT DEL JUGADOR ***//
 void DetectarControles(){
     if(pantallaActual == JUEGO){
-        //CONTROLES RANA_J1
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
-            jugadores[0].direccion = ARRIBA;
-            jugadores[0].isJumping = true;
-            jugadores[0].tempSalto = last_time;
-            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
-            printf("jugadores[0].sprite.tipoAnimacion %d\n",jugadores[0].sprite.tipoAnimacion);
-            printf("jugadores[0].sprite.indiceAnimacion %d\n",jugadores[0].sprite.indiceAnimacion);
-        }
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
-            jugadores[0].direccion = DERECHA;
-            jugadores[0].isJumping = true;
-            jugadores[0].tempSalto = last_time;
-            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
-            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
-        }
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
-            jugadores[0].direccion = ABAJO;
-            jugadores[0].isJumping = true;
-            jugadores[0].tempSalto = last_time;
-            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
-            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
-        }
-        if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
-            jugadores[0].direccion = IZQUIERDA;
-            jugadores[0].isJumping = true;
-            jugadores[0].tempSalto = last_time;
-            jugadores[0].sprite.tipoAnimacion = jugadores[0].direccion;
-            AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
+        // CONTROLES RANA_J1
+        // El jugador podrá realizar acciones siempre que:
+        //   - No esté saltando
+        if(!jugadores[0].isJumping){
+            if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
+                IniciarSaltoRana(&jugadores[0], ARRIBA);
+            }
+            if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
+                IniciarSaltoRana(&jugadores[0], DERECHA);
+            }
+            if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
+                IniciarSaltoRana(&jugadores[0], ABAJO);
+            }
+            if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
+                IniciarSaltoRana(&jugadores[0], IZQUIERDA);
+            }
         }
     }
 
@@ -355,14 +384,12 @@ void DetectarControles(){
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
 void ActualizarEstadoJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
+        //Si la rana del jugador está saltando...
         if(jugadores[i].isJumping){
-            printf("jugadores[i].tempSalto %f\n",jugadores[i].tempSalto);
-            printf("last_time %f\n",last_time);
-            if(jugadores[i].tempSalto == last_time){
-                printf("Asdas");
-                AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[0].sprite);
-            }
-            if(HacerCadaX(&jugadores[i].tempSalto,jugadores[i].duracionSalto)){
+            // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
+            if(HacerDuranteX(&jugadores[i].tempSalto,jugadores[i].duracionSalto)){
+                MoveCollider(&jugadores[i].sprite.collider, jugadores[i].direccion, jugadores[i].velocidadSalto);
+            }else{
                 jugadores[i].isJumping = false;
                 AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
             }
@@ -458,4 +485,3 @@ int esat::main(int argc, char **argv) {
     esat::WindowDestroy();
     return 0;  
 }
-
