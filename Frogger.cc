@@ -46,7 +46,6 @@ struct Collider{
     // P1 Tambien sirve como ubicación
     PuntoCoord P1 = {0.0f,0.0f};
     PuntoCoord P2 = {10.0f,10.0f};
-    bool isActive = true;
 };
 
 struct SpriteSheet{
@@ -67,7 +66,7 @@ struct Sprite{
     // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
-    bool isVisible = true;
+    bool isVisible = true, isActive = true;
 };
 
 struct Rana{
@@ -76,11 +75,18 @@ struct Rana{
 	Sprite sprite;
     bool isJumping = false;
     // finSalto se encarga de conservar la coordenada final en la
-    // que debe aterrizar la rana
+    // que debe aterrizar la rana asegurar su correcto movimiento
     Collider finSalto;
     int distanciaSalto;
     //Tiempos en milisegunos/ms
     float duracionSalto, tempSalto, velocidadSalto;
+};
+
+struct Vehiculo{
+    TipoObjeto tipoObjeto;
+    Direccion direccion;
+	Sprite sprite;
+    float velocidadMovimiento;
 };
 
 /* FIN STRUCTS */
@@ -131,6 +137,10 @@ unsigned char jugadoresActuales = 1;
 Rana jugadores[maxJugadores];
 
 //-- Obstáculos
+const int maxCamiones = 8, maxCochesBlancos = 3, maxCochesAmarillos = 4;
+const int maxCochesRosas = 4, maxTractores = 4;
+Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos[maxCochesAmarillos]; 
+Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
 
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
@@ -162,7 +172,6 @@ bool HacerCadaX(float *temp, float x){
 }
 
 bool HacerDuranteX(float *temp, float x){
-    printf("%f\n",*temp);
     return(!HacerCadaX(&(*temp),x));
 }
 
@@ -258,16 +267,15 @@ void InicializarSpriteSheets(){
     ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
     InicializarCoordsSpriteSheet(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords);
 
-    //TO_DO
-    // vehiculosSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
-    // vehiculosSpriteSheet.tiposAnim = 1;
-    // vehiculosSpriteSheet.indicesAnim = 6;
-    // vehiculosSpriteSheet.coordsAnim = vehiculosSpriteSheet.indicesAnim*2;
-    // vehiculosSpriteSheet.totalCoordsAnim = vehiculosSpriteSheet.tiposAnim * vehiculosSpriteSheet.coordsAnim;
-    // vehiculosSpriteSheet.spriteWidth = (esat::SpriteWidth(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.indicesAnim);
-    // vehiculosSpriteSheet.spriteHeight = (esat::SpriteHeight(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.tiposAnim);
-    // InicializarCoordsSpriteSheet(&vehiculosSpriteSheet, vehiculosSpriteSheet_Coords);
-    
+    // Inicializa el SpriteSheet de los vehiculos y su array de coordenadas
+    vehiculosSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/VehiculosSpriteSheet.png");
+    vehiculosSpriteSheet.tiposAnim = 1;
+    vehiculosSpriteSheet.indicesAnim = 6;
+    vehiculosSpriteSheet.coordsAnim = vehiculosSpriteSheet.indicesAnim*2;
+    vehiculosSpriteSheet.totalCoordsAnim = vehiculosSpriteSheet.tiposAnim * vehiculosSpriteSheet.coordsAnim;
+    vehiculosSpriteSheet.spriteWidth = (esat::SpriteWidth(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.indicesAnim);
+    vehiculosSpriteSheet.spriteHeight = (esat::SpriteHeight(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.tiposAnim);
+    InicializarCoordsSpriteSheet(&vehiculosSpriteSheet, vehiculosSpriteSheet_Coords);
 }
 
 void InicializarSprites(){
@@ -344,8 +352,65 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
         break;
     }
 }
+void InicializarCamiones(){
+    int margen = vehiculosSpriteSheet.spriteWidth * 2;
+    float ultimaPosicionCamion_X = 0.0f; 
+    for(int i = 0; i < maxCamiones; i++){
+        camiones[i].tipoObjeto = VEHICULO_O;
+        camiones[i].direccion = IZQUIERDA;
+        camiones[i].sprite.tipoAnimacion = 0;
+        camiones[i].sprite.isVisible = true;
+        camiones[i].sprite.isActive = true;
+        
+        if(i%2 == 0){
+            //Si es par, se dibuja el frontal del camion a partir de la ultima posicion dibujada
+            camiones[i].sprite.collider.P1 = {ultimaPosicionCamion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*6.0f)};
+            camiones[i].sprite.collider.P2 = {ultimaPosicionCamion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*5.0f)};
+            if(i != 0){
+                //Si no es el primer frontal, le añade un espaciado
+                camiones[i].sprite.collider.P1.x += margen;
+                camiones[i].sprite.collider.P2.x += margen;
+            }
+            camiones[i].sprite.indiceAnimacion = 8;
+        }else{
+            //Si es impar, se dibuja la parte trasera del camion
+            camiones[i].sprite.collider.P1 = {ultimaPosicionCamion_X,VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*6.0f)};
+            camiones[i].sprite.collider.P2 = {ultimaPosicionCamion_X + vehiculosSpriteSheet.spriteWidth,VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*5.0f)};
+            camiones[i].sprite.indiceAnimacion = 10;
+        }
+        ultimaPosicionCamion_X = camiones[i].sprite.collider.P2.x;
+        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&camiones[i].sprite);
+    }
+}
+void InicializarCochesBlancos(){
+    for(int i = 0; i < maxCochesBlancos; i++){
+        
+    }
+}
+void InicializarCochesAmarillos(){
+    for(int i = 0; i < maxCochesAmarillos; i++){
+
+    }
+}
+void InicializarCochesRosas(){
+    for(int i = 0; i < maxCochesRosas; i++){
+
+    }
+}
+void InicializarTractores(){
+    for(int i = 0; i < maxTractores; i++){
+
+    }
+}
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
+void InicializarVehiculos(){
+    InicializarCamiones();
+    InicializarCochesBlancos();
+    InicializarCochesAmarillos();
+    InicializarCochesRosas();
+    InicializarTractores();
+}
 
 // Instancia los valores por defecto de cada jugador
 // Pensado para utilizarse al inicio de cada partida
@@ -409,23 +474,15 @@ void DetectarControles(){
         if(!jugadores[0].isJumping){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
                 IniciarSaltoRana(&jugadores[0], ARRIBA);
-                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
-                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
                 IniciarSaltoRana(&jugadores[0], DERECHA);
-                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
-                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
                 IniciarSaltoRana(&jugadores[0], ABAJO);
-                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
-                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
                 IniciarSaltoRana(&jugadores[0], IZQUIERDA);
-                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
-                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
         }
     }
@@ -474,7 +531,7 @@ void DibujarArbustos(){
     int posInicial_X = 0;
     int posActual_X;
     int posFila1_Y = VENTANA_Y-(esat::SpriteHeight(arbustoSprite)*2);
-    int posFila2_Y = posFila1_Y-(esat::SpriteHeight(arbustoSprite)*6);
+    int posFila2_Y = VENTANA_Y-(esat::SpriteHeight(arbustoSprite)*7);
     for(int i = 0; i < 2; i++){
         posActual_X = posInicial_X;
         for(int arbusto = 0; arbusto < tamanyoFilaArbustos; arbusto++){
@@ -488,6 +545,20 @@ void DibujarArbustos(){
     }
 }
 
+void DibujarCamiones(){
+    for(int i = 0; i < maxCamiones; i++){
+        esat::DrawSprite(camiones[i].sprite.imagen, camiones[i].sprite.collider.P1.x, camiones[i].sprite.collider.P1.y);
+    }
+}
+
+void DibujarVehiculos(){
+    DibujarCamiones();
+    // DibujarCochesBlancos();
+    // DibujarCochesAmarillos();
+    // DibujarCochesRosas();
+    // DibujarTractores();
+}
+
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
@@ -496,6 +567,7 @@ void DibujarJugadores(){
 
 void DibujarJuego(){
     DibujarArbustos();
+    DibujarVehiculos();
     DibujarJugadores();
 }
 
@@ -554,7 +626,8 @@ int esat::main(int argc, char **argv) {
     InicializarSpriteSheets();
     InicializarSprites();
 
-    // Inicialización de cosas visibles durante la ejecución de JUEGO
+    // Inicialización de cosas interactivas durante la ejecución de JUEGO
+    InicializarVehiculos();
     InicializarJugadores();
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
