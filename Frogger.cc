@@ -46,6 +46,7 @@ struct Collider{
     // P1 Tambien sirve como ubicación
     PuntoCoord P1 = {0.0f,0.0f};
     PuntoCoord P2 = {10.0f,10.0f};
+    bool isActive = true;
 };
 
 struct SpriteSheet{
@@ -66,6 +67,7 @@ struct Sprite{
     // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
+    bool isVisible = true;
 };
 
 struct Rana{
@@ -73,6 +75,9 @@ struct Rana{
 	Direccion direccion;
 	Sprite sprite;
     bool isJumping = false;
+    // finSalto se encarga de conservar la coordenada final en la
+    // que debe aterrizar la rana
+    Collider finSalto;
     int distanciaSalto;
     //Tiempos en milisegunos/ms
     float duracionSalto, tempSalto, velocidadSalto;
@@ -100,8 +105,7 @@ Pantalla pantallaActual = JUEGO;
 //-- Fin UI
 
 
-//-- SpriteSheets - Se declara todo lo necesario por SpriteSheet para funcionar durante la ejecución
-// SpriteSheets y arrays de coordenadas del mismo
+//-- SpriteSheets y arrays de coordenadas del mismo
 // Estos arrays no se incluyen en el propio spriteSheet para poder inicializar su tamaño
 // evitando problemas de acceso a memoria al no tener la capacidad de usar gestión dinámica de memoria
 SpriteSheet animMuerteSpriteSheet;
@@ -112,12 +116,24 @@ SpriteSheet ranaRosaSpriteSheet;
 SpriteSheet ranaRojaSpriteSheet;
 int ranasSpriteSheet_Coords[16];
 
-//-- Fin SpriteSheets
+SpriteSheet vehiculosSpriteSheet;
+int vehiculosSpriteSheet_Coords[12];
+
+//-- Sprites | Declaración de los handles cuyos sprites: 
+//  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
+//  -No necesitan collider
+esat::SpriteHandle arbustoSprite;
+
 
 //-- Jugadores
 const unsigned char maxJugadores = 2;
 unsigned char jugadoresActuales = 1;
 Rana jugadores[maxJugadores];
+
+//-- Obstáculos
+
+//-- Estructuras
+const int tamanyoFilaArbustos = 14;
 
 // Fin Variables
 /* FIN GLOBALES */
@@ -146,6 +162,7 @@ bool HacerCadaX(float *temp, float x){
 }
 
 bool HacerDuranteX(float *temp, float x){
+    printf("%f\n",*temp);
     return(!HacerCadaX(&(*temp),x));
 }
 
@@ -190,6 +207,15 @@ void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet, int spriteSheetCoord
     }
 }
 
+
+//Dada una coordenada actual y una esperada final, devuelve false si es difetente
+bool ComprobarPosicionFinal(Collider actual, Collider final){
+    return (
+        actual.P1.x == final.P1.x && actual.P2.x == final.P2.x &&
+        actual.P1.y == final.P1.y && actual.P2.y == final.P2.y
+    );
+}
+
 // Inicializa todos los valores de todos los SpriteSheets para ser utilizables durante el resto de la ejecución del programa
 //
 // Se guardan en sus structs correspondientes para facilitar su uso y legibilidad durante el proyecto
@@ -231,7 +257,21 @@ void InicializarSpriteSheets(){
     ranaRojaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.indicesAnim);
     ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
     InicializarCoordsSpriteSheet(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords);
+
+    //TO_DO
+    // vehiculosSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
+    // vehiculosSpriteSheet.tiposAnim = 1;
+    // vehiculosSpriteSheet.indicesAnim = 6;
+    // vehiculosSpriteSheet.coordsAnim = vehiculosSpriteSheet.indicesAnim*2;
+    // vehiculosSpriteSheet.totalCoordsAnim = vehiculosSpriteSheet.tiposAnim * vehiculosSpriteSheet.coordsAnim;
+    // vehiculosSpriteSheet.spriteWidth = (esat::SpriteWidth(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.indicesAnim);
+    // vehiculosSpriteSheet.spriteHeight = (esat::SpriteHeight(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.tiposAnim);
+    // InicializarCoordsSpriteSheet(&vehiculosSpriteSheet, vehiculosSpriteSheet_Coords);
     
+}
+
+void InicializarSprites(){
+    arbustoSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/ArbustoSprite.png");
 }
 
 //*** MANEJO DE SPRITES/SPRITESHEETS ***/
@@ -306,6 +346,7 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 }
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
+
 // Instancia los valores por defecto de cada jugador
 // Pensado para utilizarse al inicio de cada partida
 void InicializarJugadores(){
@@ -322,9 +363,10 @@ void InicializarJugadores(){
             jugadores[i].sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
         };
         jugadores[i].isJumping = false;
+        jugadores[i].finSalto = jugadores[i].sprite.collider; 
         jugadores[i].distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
         jugadores[i].duracionSalto = 100;
-        jugadores[i].velocidadSalto = (jugadores[i].distanciaSalto/jugadores[i].duracionSalto)*10;
+        jugadores[i].velocidadSalto = (jugadores[i].distanciaSalto/(jugadores[i].duracionSalto/(1000.0f/FPS)));
         jugadores[i].tempSalto = 0;
         ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
     }
@@ -333,6 +375,25 @@ void InicializarJugadores(){
 //*** INICIO DE ACCIONES DE LOS OBJETOS ***//
 void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
     (*rana).direccion = newDireccion;
+    // CALCULA LA POSICION FINAL DONDE DEBE ATERRIZAR
+    switch((*rana).direccion){
+        case ARRIBA:
+            (*rana).finSalto.P1.y -= (*rana).distanciaSalto;
+            (*rana).finSalto.P2.y -= (*rana).distanciaSalto;
+        break;
+        case DERECHA:
+            (*rana).finSalto.P1.x += (*rana).distanciaSalto;
+            (*rana).finSalto.P2.x += (*rana).distanciaSalto;
+        break;
+        case ABAJO:
+            (*rana).finSalto.P1.y += (*rana).distanciaSalto;
+            (*rana).finSalto.P2.y += (*rana).distanciaSalto;
+        break;
+        case IZQUIERDA:
+            (*rana).finSalto.P1.x -= (*rana).distanciaSalto;
+            (*rana).finSalto.P2.x -= (*rana).distanciaSalto;
+        break;
+    }
     (*rana).isJumping = true;
     (*rana).tempSalto = last_time;
     (*rana).sprite.tipoAnimacion = newDireccion;
@@ -348,15 +409,23 @@ void DetectarControles(){
         if(!jugadores[0].isJumping){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
                 IniciarSaltoRana(&jugadores[0], ARRIBA);
+                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
+                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
                 IniciarSaltoRana(&jugadores[0], DERECHA);
+                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
+                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
                 IniciarSaltoRana(&jugadores[0], ABAJO);
+                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
+                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
                 IniciarSaltoRana(&jugadores[0], IZQUIERDA);
+                printf("X = %f\n",jugadores[0].sprite.collider.P1.x);
+                printf("Y = %f\n",jugadores[0].sprite.collider.P1.y);
             }
         }
     }
@@ -382,7 +451,7 @@ void ActualizarEstadoJugadores(){
         //Si la rana del jugador está saltando...
         if(jugadores[i].isJumping){
             // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-            if(HacerDuranteX(&jugadores[i].tempSalto,jugadores[i].duracionSalto)){
+            if(HacerDuranteX(&jugadores[i].tempSalto,jugadores[i].duracionSalto) && !ComprobarPosicionFinal(jugadores[i].sprite.collider, jugadores[i].finSalto)){
                 MoveCollider(&jugadores[i].sprite.collider, jugadores[i].direccion, jugadores[i].velocidadSalto);
             }else{
                 jugadores[i].isJumping = false;
@@ -401,6 +470,24 @@ void ActualizarEstadoJuego(){
 
 
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
+void DibujarArbustos(){
+    int posInicial_X = 0;
+    int posActual_X;
+    int posFila1_Y = VENTANA_Y-(esat::SpriteHeight(arbustoSprite)*2);
+    int posFila2_Y = posFila1_Y-(esat::SpriteHeight(arbustoSprite)*6);
+    for(int i = 0; i < 2; i++){
+        posActual_X = posInicial_X;
+        for(int arbusto = 0; arbusto < tamanyoFilaArbustos; arbusto++){
+            if(i == 0){
+                esat::DrawSprite(arbustoSprite, posActual_X, posFila1_Y);
+            }else{
+                esat::DrawSprite(arbustoSprite, posActual_X, posFila2_Y);
+            }
+            posActual_X += esat::SpriteWidth(arbustoSprite);
+        }
+    }
+}
+
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
@@ -408,6 +495,7 @@ void DibujarJugadores(){
 }
 
 void DibujarJuego(){
+    DibujarArbustos();
     DibujarJugadores();
 }
 
@@ -427,12 +515,17 @@ void DibujarEntorno(){
 
 //*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
 void LiberarSpriteSheets(){
-    // Los delete[] liberan la memoria de los arrays de coordenadas de los spriteSheets 
     esat::SpriteRelease(animMuerteSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaBaseSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaRosaSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaRojaSpriteSheet.spriteSheet);
+    esat::SpriteRelease(vehiculosSpriteSheet.spriteSheet);
 }
+
+void LiberarSpritesBase(){
+    esat::SpriteRelease(arbustoSprite);
+}
+
 void LiberarSpritesJugadores(){
     for(int i = 0; i < maxJugadores; i++){
         if(jugadores[i].sprite.imagen != NULL){
@@ -440,10 +533,12 @@ void LiberarSpritesJugadores(){
         }
     }
 }
+
 //Libera de memoria todos los spriteHandle inicializados
 void LiberarSprites(){
-    LiberarSpriteSheets();
     LiberarSpritesJugadores();
+    LiberarSpritesBase();
+    LiberarSpriteSheets();
 }
 /* FIN FUNCIONALIDADES*/
 
@@ -454,7 +549,12 @@ int esat::main(int argc, char **argv) {
     esat::WindowInit(VENTANA_X,VENTANA_Y);
     WindowSetMouseVisibility(true);
 
+    // Inicialización de todos aquellos recursos que necesitan ser precargados para
+    // que otros los puedan usar
     InicializarSpriteSheets();
+    InicializarSprites();
+
+    // Inicialización de cosas visibles durante la ejecución de JUEGO
     InicializarJugadores();
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
