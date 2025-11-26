@@ -285,11 +285,6 @@ void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Spr
 //   - direccion -> Indica en que dirección se moverá
 //   - velocidad -> Indica la cantidad de pixeles que se moverá el collider en la direccion indicada
 void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
-    printf("COLLIDER\n");
-    printf("X = %f\n",(*collider).P1.x);
-    printf("Y = %f\n",(*collider).P1.y);
-    printf("Direccion = %d\n",direccion);
-    printf("Velocidad = %f\n",velocidad);
     switch(direccion){
         case ARRIBA:
             (*collider).P1.y -= velocidad;
