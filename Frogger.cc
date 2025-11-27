@@ -22,19 +22,15 @@ enum Direccion {
     IZQUIERDA
 };
 
-// Enumerador que indicará que tipo 
-// de objeto es a ciertas funciones
-enum TipoObjeto{
-    RANAJUGADOR_O,
-    RANABONUS_O,
-    VEHICULO_O,
-    TRONCO_O,
-    COCODRILO_CUERPO_O,
-    COCODRILO_BOCA_O,
-    NUTRIA_O,
-    SERPIENTE_O,
-    MOSCA_O,
-    CROC_O
+// Facilita la selección del indiceAnimacion 
+// de los vehiculos para dibujar el vehiculo deaseado
+enum TipoVehiculo {
+    COCHE_AMARILLO,
+    TRACTOR,
+    COCHE_ROSA,
+    COCHE_BLANCO,
+    CAMION_FRONT,
+    CAMION_BACK
 };
 
 /* STRUCTS */
@@ -66,11 +62,10 @@ struct Sprite{
     // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
-    bool isVisible = true, isActive = true;
+    bool isVisible = true, isActive = true; 
 };
 
 struct Rana{
-	TipoObjeto tipoObjeto;
 	Direccion direccion;
 	Sprite sprite;
     bool isJumping = false;
@@ -83,7 +78,7 @@ struct Rana{
 };
 
 struct Vehiculo{
-    TipoObjeto tipoObjeto;
+    TipoVehiculo tipoVehiculo;
     Direccion direccion;
 	Sprite sprite;
     float velocidadMovimiento;
@@ -402,132 +397,140 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
     }
 }
 
-// Instancia los valores por defecto de los camiones al inicio de un nivel
-void InicializarCamiones(){
-    int margen = vehiculosSpriteSheet.spriteWidth * 2;
-    float ultimaPosicion_X = 0.0f; 
-    for(int i = 0; i < maxCamiones; i++){
-        camiones[i].tipoObjeto = VEHICULO_O;
-        camiones[i].direccion = IZQUIERDA;
-        camiones[i].sprite.tipoAnimacion = 0;
-        camiones[i].sprite.isVisible = true;
-        camiones[i].sprite.isActive = true;
-        camiones[i].velocidadMovimiento = 1.0f;
-        
-        if(i%2 == 0){
-            //Si es par, se dibuja el frontal del camion a partir de la ultima posicion dibujada
-            camiones[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*7.0f)};
-            camiones[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*6.0f)};
-            if(i != 0){
-                //Si no es el primer frontal, le añade un espaciado
-                camiones[i].sprite.collider.P1.x += margen;
-                camiones[i].sprite.collider.P2.x += margen;
-            }
-            camiones[i].sprite.indiceAnimacion = 8;
-        }else{
-            //Si es impar, se dibuja la parte trasera del camion
-            camiones[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*7.0f)};
-            camiones[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth,VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*6.0f)};
-            camiones[i].sprite.indiceAnimacion = 10;
-        }
+// Instancia los valores de un vehiculo
+// *vehiculo            -> Vehiculo a instanciar
+// tipo                 -> Indica que tipo de vehiculo
+// direccion            -> Establece la dirección en la que se está moviendo
+// fila                 -> Fila de la pantalla (contando desde abajo) en la que se va a dibujar (coord -> Y)
+// posicionX            -> Posición de X del punto 1 del sprite del vehiculo
+// velocidadMovimiento  -> Velocidad a la que se moverá el vehiculo
+// margen               -> Indica el espacio adicional en X en funcion de la dirección
+void InicializarVehiculo(
+    Vehiculo *vehiculo, TipoVehiculo tipo, Direccion direccion,
+    int fila, float posicionX, 
+    float velocidadMovimiento, 
+    float margen
+){
+    margen = vehiculosSpriteSheet.spriteWidth * margen;
 
-        ultimaPosicion_X = camiones[i].sprite.collider.P2.x;
-        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&camiones[i].sprite);
+    (*vehiculo).direccion = direccion;
+    (*vehiculo).sprite.tipoAnimacion = 0;
+    (*vehiculo).sprite.isVisible = true;
+    (*vehiculo).sprite.isActive = true;
+    (*vehiculo).velocidadMovimiento = velocidadMovimiento;
+    
+    (*vehiculo).sprite.collider.P1 = {posicionX, ((float)(VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*fila)))};
+    (*vehiculo).sprite.collider.P2 = {posicionX + vehiculosSpriteSheet.spriteWidth, ((float) VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*(fila-1)))};
+    
+    switch(direccion){
+        case DERECHA:
+            (*vehiculo).sprite.collider.P1.x -= margen;
+            (*vehiculo).sprite.collider.P2.x -= margen;
+        break;
+        case IZQUIERDA:
+            (*vehiculo).sprite.collider.P1.x += margen;
+            (*vehiculo).sprite.collider.P2.x += margen;
+        break;
     }
-}
-void InicializarCochesBlancos(){
-    int margen = vehiculosSpriteSheet.spriteWidth * 3;
-    float ultimaPosicion_X = 0.0f; 
-    for(int i = 0; i < maxCochesBlancos; i++){
-        cochesBlancos[i].tipoObjeto = VEHICULO_O;
-        cochesBlancos[i].direccion = DERECHA;
-        cochesBlancos[i].sprite.tipoAnimacion = 0;
-        cochesBlancos[i].sprite.isVisible = true;
-        cochesBlancos[i].sprite.isActive = true;
-        cochesBlancos[i].velocidadMovimiento = 2.0f;
-        
-        cochesBlancos[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*6.0f)};
-        cochesBlancos[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*5.0f)};
-        if(i != 0){
-            //Si no es el primer coche, le añade un espaciado
-            cochesBlancos[i].sprite.collider.P1.x += margen;
-            cochesBlancos[i].sprite.collider.P2.x += margen;
-        }
-        cochesBlancos[i].sprite.indiceAnimacion = 6;
+    
+    (*vehiculo).sprite.indiceAnimacion = tipo*2;
 
-        ultimaPosicion_X = cochesBlancos[i].sprite.collider.P2.x;
-        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesBlancos[i].sprite);   
-    }
-}
-void InicializarCochesAmarillos(){
-    int margen = vehiculosSpriteSheet.spriteWidth * 2.5;
-    float ultimaPosicion_X = 0.0f; 
-    for(int i = 0; i < maxCochesAmarillos; i++){
-        cochesAmarillos[i].tipoObjeto = VEHICULO_O;
-        cochesAmarillos[i].direccion = IZQUIERDA;
-        cochesAmarillos[i].sprite.tipoAnimacion = 0;
-        cochesAmarillos[i].sprite.isVisible = true;
-        cochesAmarillos[i].sprite.isActive = true;
-        cochesAmarillos[i].velocidadMovimiento = 2.0f;
-        
-        cochesAmarillos[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*3.0f)};
-        cochesAmarillos[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*2.0f)};
-        if(i != 0){
-            //Si no es el primer coche, le añade un espaciado
-            cochesAmarillos[i].sprite.collider.P1.x += margen;
-            cochesAmarillos[i].sprite.collider.P2.x += margen;
-        }
-        cochesAmarillos[i].sprite.indiceAnimacion = 0;
-
-        ultimaPosicion_X = cochesAmarillos[i].sprite.collider.P2.x;
-        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesAmarillos[i].sprite);   
-    }
-}
-void InicializarCochesRosas(){
-    //TODO SE PODRÍA CAMBIAR CON UN PARAMETRO DE TIPO VEHICULO
-    int margen = vehiculosSpriteSheet.spriteWidth * 2.5; //CAMBIO
-    float ultimaPosicion_X = 0.0f; 
-    for(int i = 0; i < maxCochesRosas; i++){
-        cochesRosas[i].tipoObjeto = VEHICULO_O;
-        cochesRosas[i].direccion = IZQUIERDA; //CAMBIO
-        cochesRosas[i].sprite.tipoAnimacion = 0;
-        cochesRosas[i].sprite.isVisible = true;
-        cochesRosas[i].sprite.isActive = true;
-        cochesRosas[i].velocidadMovimiento = 2.0f; //CAMBIO
-        
-        cochesRosas[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*5.0f)}; //CAMBIO_FILA
-        cochesRosas[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*4.0f)}; //CAMBIO_FILA
-        if(i != 0){
-            //Si no es el primer coche, le añade un espaciado
-            cochesRosas[i].sprite.collider.P1.x += margen;
-            cochesRosas[i].sprite.collider.P2.x += margen;
-        }
-        cochesRosas[i].sprite.indiceAnimacion = 4; //CAMBIO
-
-        ultimaPosicion_X = cochesRosas[i].sprite.collider.P2.x;
-        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesRosas[i].sprite);   
-    }
-}
-void InicializarTractores(){
-    for(int i = 0; i < maxTractores; i++){
-
-    }
+    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);   
 }
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
-void InicializarVehiculos(){
-    InicializarCamiones();
-    InicializarCochesBlancos();
-    InicializarCochesAmarillos();
-    InicializarCochesRosas();
-    InicializarTractores();
+// Instancia los valores por defecto de los vehiculos al inicio de un nivel
+void InicializarCarretera(){
+    float ultimaPX_Amarillo, ultimaPX_Tractor, ultimaPX_Rosa, ultimaPX_Blanco, ultimaPX_Camion;
+    // Se usa maxCamiones como límite ya que es el array de los obstaculos de carretera mas largo
+    // Luego internamente se comprueba que el indice sea valido para cada columna (cantidad de vehiculos)
+    for(int i = 0; i < maxCamiones; i++){
+        // InicializarCochesAmarillos
+        if(i < maxCochesAmarillos){
+            InicializarVehiculo(
+                &cochesAmarillos[i],
+                COCHE_AMARILLO,
+                IZQUIERDA,
+                3,
+                i == 0 ?  
+                0: 
+                ultimaPX_Amarillo+vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+            ultimaPX_Amarillo = cochesAmarillos[i].sprite.collider.P1.x;
+        }
+
+        // InicializarTractores
+        if(i < maxTractores){
+            InicializarVehiculo(
+                &tractores[i],
+                TRACTOR,
+                DERECHA,
+                4,
+                i == 0 ? 
+                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
+                ultimaPX_Tractor-vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+
+            ultimaPX_Tractor = tractores[i].sprite.collider.P1.x;
+        }
+
+        // InicializarCochesRosas
+        if(i < maxCochesRosas){
+            InicializarVehiculo(
+                &cochesRosas[i],
+                COCHE_ROSA,
+                IZQUIERDA,
+                5,
+                i == 0 ?  
+                0: 
+                ultimaPX_Amarillo+vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+            ultimaPX_Rosa = cochesAmarillos[i].sprite.collider.P1.x;
+        }
+        
+        // InicializarCochesBlancos
+        if(i < maxCochesBlancos){
+            InicializarVehiculo(
+                &cochesBlancos[i],
+                COCHE_BLANCO,
+                DERECHA,
+                6,
+                i == 0 ? 
+                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
+                ultimaPX_Tractor-vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+
+            ultimaPX_Tractor = tractores[i].sprite.collider.P1.x;
+        }
+
+        // InicializarCamiones
+        InicializarVehiculo(
+            &camiones[i],
+            i%2 == 0 ? CAMION_FRONT : CAMION_BACK,
+            IZQUIERDA,
+            7,
+            i == 0 ?  
+            0: 
+            ultimaPX_Camion+vehiculosSpriteSheet.spriteWidth, 
+            1,
+            i == 0 ? 0 : i%2==0 ? 2 : 0
+        );
+        ultimaPX_Camion = camiones[i].sprite.collider.P1.x;
+    }
 }
 
 // Instancia los valores por defecto de cada jugador
 // Pensado para utilizarse al inicio de cada partida
 void InicializarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        jugadores[i].tipoObjeto = RANAJUGADOR_O;
         jugadores[i].direccion = ARRIBA;
         jugadores[i].sprite.tipoAnimacion = 0;
         jugadores[i].sprite.indiceAnimacion = 0;
@@ -629,9 +632,9 @@ void ActualizarEstadoVehiculos(){
             ActualizarEstadoVehiculo(&cochesAmarillos[i]);
         }
 
-        // if(i < maxTractores){
-        //     ActualizarEstadoVehiculo(&tractores[i]);
-        // }
+        if(i < maxTractores){
+            ActualizarEstadoVehiculo(&tractores[i]);
+        }
 
         if(i < maxCochesRosas){
             ActualizarEstadoVehiculo(&cochesRosas[i]);
@@ -703,9 +706,9 @@ void DibujarVehiculos(){
             esat::DrawSprite(cochesAmarillos[i].sprite.imagen, cochesAmarillos[i].sprite.collider.P1.x, cochesAmarillos[i].sprite.collider.P1.y);
         }
 
-        // if(i < maxTractores){
-        //     esat::DrawSprite(tractores[i].sprite.imagen, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
-        // }
+        if(i < maxTractores){
+            esat::DrawSprite(tractores[i].sprite.imagen, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
+        }
 
         if(i < maxCochesRosas){
             esat::DrawSprite(cochesRosas[i].sprite.imagen, cochesRosas[i].sprite.collider.P1.x, cochesRosas[i].sprite.collider.P1.y);
@@ -787,7 +790,7 @@ int esat::main(int argc, char **argv) {
     InicializarSprites();
 
     // Inicialización de cosas interactivas durante la ejecución de JUEGO
-    InicializarVehiculos();
+    InicializarCarretera();
     InicializarJugadores();
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
