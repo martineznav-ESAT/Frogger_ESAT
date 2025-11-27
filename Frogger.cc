@@ -137,8 +137,9 @@ unsigned char jugadoresActuales = 1;
 Rana jugadores[maxJugadores];
 
 //-- Obstáculos
+const int filasCarretera = 5;
 const int maxCamiones = 8, maxCochesBlancos = 4, maxCochesAmarillos = 4;
-const int maxCochesRosas = 4, maxTractores = 4;
+const int maxCochesRosas = 5, maxTractores = 4;
 Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos[maxCochesAmarillos]; 
 Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
 
@@ -223,6 +224,26 @@ bool ComprobarPosicionFinal(Collider actual, Collider final){
         actual.P1.x == final.P1.x && actual.P2.x == final.P2.x &&
         actual.P1.y == final.P1.y && actual.P2.y == final.P2.y
     );
+}
+
+bool ComprobarSalidaVentanaSprite(Sprite *sprite, Direccion direccion){
+    bool isOut = false;
+    switch(direccion){
+        case ARRIBA:
+            isOut = (*sprite).collider.P2.y < 0;
+        break;
+        case DERECHA:
+            isOut = (*sprite).collider.P1.x > VENTANA_X;
+        break;
+        case ABAJO:
+            isOut = (*sprite).collider.P1.y > VENTANA_Y;
+        break;
+        case IZQUIERDA:
+            isOut = (*sprite).collider.P2.x < 0;
+        break;
+    }
+
+    return isOut;
 }
 
 // Inicializa todos los valores de todos los SpriteSheets para ser utilizables durante el resto de la ejecución del programa
@@ -328,6 +349,34 @@ void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Spr
     ActualizarSprite(&(*spriteSheet), spriteSheetCoords, &(*sprite));
 }
 
+void RellocateSprite(Sprite *sprite, PuntoCoord nuevaUbicacion){
+    (*sprite).collider.P1 = nuevaUbicacion;
+    (*sprite).collider.P2 = {nuevaUbicacion.x + esat::SpriteWidth((*sprite).imagen), nuevaUbicacion.y + esat::SpriteHeight((*sprite).imagen)};
+}
+
+// Ubica el Sprite en el borde opuesto de la dirección que se indica ya que se asume que se ha escapado
+// por ese borde y se desea reubicar en el lugar contrario
+//   - *collider        -> El collider a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
+//   - direccion        -> Indica en que dirección se moverá
+void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
+    PuntoCoord nuevaUbicacion;
+    switch(direccion){
+        case ARRIBA:
+            nuevaUbicacion = {(*sprite).collider.P1.x,VENTANA_Y};
+        break;
+        case DERECHA:
+            nuevaUbicacion = {0.0f-esat::SpriteWidth((*sprite).imagen),(*sprite).collider.P1.y};
+        break;
+        case ABAJO:
+            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-esat::SpriteWidth((*sprite).imagen)};
+        break;
+        case IZQUIERDA:
+            nuevaUbicacion = {VENTANA_X,(*sprite).collider.P1.y};
+        break;
+    }
+    RellocateSprite(&(*sprite), nuevaUbicacion);
+}
+
 // Actualiza las coordenadas de un Collider
 //   - *collider -> El collider a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
 //   - direccion -> Indica en que dirección se moverá
@@ -404,20 +453,59 @@ void InicializarCochesBlancos(){
             cochesBlancos[i].sprite.collider.P1.x += margen;
             cochesBlancos[i].sprite.collider.P2.x += margen;
         }
-        cochesBlancos[i].sprite.indiceAnimacion = 4;
+        cochesBlancos[i].sprite.indiceAnimacion = 6;
 
         ultimaPosicion_X = cochesBlancos[i].sprite.collider.P2.x;
         ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesBlancos[i].sprite);   
     }
 }
 void InicializarCochesAmarillos(){
+    int margen = vehiculosSpriteSheet.spriteWidth * 2.5;
+    float ultimaPosicion_X = 0.0f; 
     for(int i = 0; i < maxCochesAmarillos; i++){
+        cochesAmarillos[i].tipoObjeto = VEHICULO_O;
+        cochesAmarillos[i].direccion = IZQUIERDA;
+        cochesAmarillos[i].sprite.tipoAnimacion = 0;
+        cochesAmarillos[i].sprite.isVisible = true;
+        cochesAmarillos[i].sprite.isActive = true;
+        cochesAmarillos[i].velocidadMovimiento = 2.0f;
+        
+        cochesAmarillos[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*3.0f)};
+        cochesAmarillos[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*2.0f)};
+        if(i != 0){
+            //Si no es el primer coche, le añade un espaciado
+            cochesAmarillos[i].sprite.collider.P1.x += margen;
+            cochesAmarillos[i].sprite.collider.P2.x += margen;
+        }
+        cochesAmarillos[i].sprite.indiceAnimacion = 0;
 
+        ultimaPosicion_X = cochesAmarillos[i].sprite.collider.P2.x;
+        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesAmarillos[i].sprite);   
     }
 }
 void InicializarCochesRosas(){
+    //TODO SE PODRÍA CAMBIAR CON UN PARAMETRO DE TIPO VEHICULO
+    int margen = vehiculosSpriteSheet.spriteWidth * 2.5; //CAMBIO
+    float ultimaPosicion_X = 0.0f; 
     for(int i = 0; i < maxCochesRosas; i++){
+        cochesRosas[i].tipoObjeto = VEHICULO_O;
+        cochesRosas[i].direccion = IZQUIERDA; //CAMBIO
+        cochesRosas[i].sprite.tipoAnimacion = 0;
+        cochesRosas[i].sprite.isVisible = true;
+        cochesRosas[i].sprite.isActive = true;
+        cochesRosas[i].velocidadMovimiento = 2.0f; //CAMBIO
+        
+        cochesRosas[i].sprite.collider.P1 = {ultimaPosicion_X, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*5.0f)}; //CAMBIO_FILA
+        cochesRosas[i].sprite.collider.P2 = {ultimaPosicion_X + vehiculosSpriteSheet.spriteWidth, VENTANA_Y-(vehiculosSpriteSheet.spriteHeight*4.0f)}; //CAMBIO_FILA
+        if(i != 0){
+            //Si no es el primer coche, le añade un espaciado
+            cochesRosas[i].sprite.collider.P1.x += margen;
+            cochesRosas[i].sprite.collider.P2.x += margen;
+        }
+        cochesRosas[i].sprite.indiceAnimacion = 4; //CAMBIO
 
+        ultimaPosicion_X = cochesRosas[i].sprite.collider.P2.x;
+        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesRosas[i].sprite);   
     }
 }
 void InicializarTractores(){
@@ -526,9 +614,34 @@ void DetectarControles(){
 }
 
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
+void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
+    if(ComprobarSalidaVentanaSprite(&(*vehiculo).sprite,(*vehiculo).direccion)){
+        RellocateSpriteOnBorderEscape(&(*vehiculo).sprite, (*vehiculo).direccion);
+    }else{
+        MoveCollider(&(*vehiculo).sprite.collider,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
+    }
+    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
+}
+
 void ActualizarEstadoVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
-        //TO_DO Crear Funcion genérica de relocalización y colisión con borde en función de la dirección del sprite
+        if(i < maxCochesAmarillos){
+            ActualizarEstadoVehiculo(&cochesAmarillos[i]);
+        }
+
+        // if(i < maxTractores){
+        //     ActualizarEstadoVehiculo(&tractores[i]);
+        // }
+
+        if(i < maxCochesRosas){
+            ActualizarEstadoVehiculo(&cochesRosas[i]);
+        }
+        
+        if(i < maxCochesBlancos){
+            ActualizarEstadoVehiculo(&cochesBlancos[i]);
+        }
+
+        // Actualiza el estado de los camiones
         if(i%2 != 0 && camiones[i].sprite.collider.P2.x < 0){
             camiones[i-1].sprite.collider.P1.x = VENTANA_X;
             camiones[i-1].sprite.collider.P2.x = VENTANA_X+vehiculosSpriteSheet.spriteWidth;
@@ -538,17 +651,6 @@ void ActualizarEstadoVehiculos(){
             MoveCollider(&camiones[i].sprite.collider,camiones[i].direccion,camiones[i].velocidadMovimiento);
         }
         ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&camiones[i].sprite);
-    }
-
-    for(int i = 0; i < maxCochesBlancos; i++){
-        //TO_DO Crear Funcion genérica de relocalización y colisión con borde en función de la dirección del sprite
-        if(cochesBlancos[i].sprite.collider.P1.x > VENTANA_X){
-            cochesBlancos[i].sprite.collider.P1.x = 0-vehiculosSpriteSheet.spriteWidth;
-            cochesBlancos[i].sprite.collider.P2.x = 0;
-        }else{
-            MoveCollider(&cochesBlancos[i].sprite.collider,cochesBlancos[i].direccion,cochesBlancos[i].velocidadMovimiento);
-        }
-        ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&cochesBlancos[i].sprite);
     }
 }
 
@@ -595,26 +697,26 @@ void DibujarArbustos(){
     }
 }
 
-void DibujarCamiones(){
+void DibujarVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
+        if(i < maxCochesAmarillos){
+            esat::DrawSprite(cochesAmarillos[i].sprite.imagen, cochesAmarillos[i].sprite.collider.P1.x, cochesAmarillos[i].sprite.collider.P1.y);
+        }
+
+        // if(i < maxTractores){
+        //     esat::DrawSprite(tractores[i].sprite.imagen, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
+        // }
+
+        if(i < maxCochesRosas){
+            esat::DrawSprite(cochesRosas[i].sprite.imagen, cochesRosas[i].sprite.collider.P1.x, cochesRosas[i].sprite.collider.P1.y);
+        }
+        
+        if(i < maxCochesBlancos){
+            esat::DrawSprite(cochesBlancos[i].sprite.imagen, cochesBlancos[i].sprite.collider.P1.x, cochesBlancos[i].sprite.collider.P1.y);
+        }
+
         esat::DrawSprite(camiones[i].sprite.imagen, camiones[i].sprite.collider.P1.x, camiones[i].sprite.collider.P1.y);
     }
-}
-
-void DibujarCochesBlancos(){
-    for(int i = 0; i < maxCochesBlancos-1; i++){
-        esat::DrawSprite(cochesBlancos[i].sprite.imagen, cochesBlancos[i].sprite.collider.P1.x, cochesBlancos[i].sprite.collider.P1.y);
-    }
-}
-
-
-void DibujarVehiculos(){
-    //TO_DO AGRUPAR EN UNA FUNCION 
-    DibujarCamiones();
-    DibujarCochesBlancos();
-    // DibujarCochesAmarillos();
-    // DibujarCochesRosas();
-    // DibujarTractores();
 }
 
 void DibujarJugadores(){
