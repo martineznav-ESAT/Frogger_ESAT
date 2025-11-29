@@ -68,13 +68,23 @@ struct Sprite{
 struct Rana{
 	Direccion direccion;
 	Sprite sprite;
-    bool isJumping = false, isDead = false;
+    bool isJumping = false;
     // finSalto se encarga de conservar la coordenada final en la
     // que debe aterrizar la rana asegurar su correcto movimiento
     Collider finSalto;
     int distanciaSalto;
     //Tiempos en milisegunos/ms
     float duracionSalto, tempSalto, velocidadSalto;
+};
+struct AnimMuerteJugador{
+    float duracionMuerte, tempMuerte = 0, velocidadAnimacion;
+};
+
+struct Jugador{
+    Rana ranaJugador;
+    int puntuacion = 0, vidas = 0;
+    bool isDead = false;
+    AnimMuerteJugador animMuerte;
 };
 
 struct Vehiculo{
@@ -132,7 +142,7 @@ esat::SpriteHandle arbustoSprite;
 //-- Jugadores
 const unsigned char maxJugadores = 2;
 unsigned char jugadoresActuales = 1;
-Rana jugadores[maxJugadores];
+Jugador jugadores[maxJugadores];
 
 //-- Obstáculos
 const int filasCarretera = 5;
@@ -323,6 +333,7 @@ esat::SpriteHandle GetSpriteFromSheet(SpriteSheet *spriteSheet, int spriteSheetC
 void ActualizarSprite(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite *sprite){
     esat::SpriteHandle buffer = (*sprite).imagen;
     (*sprite).imagen = GetSpriteFromSheet(&(*spriteSheet), spriteSheetCoords, (*sprite).tipoAnimacion,(*sprite).indiceAnimacion);
+
     if(buffer != NULL){
         esat::SpriteRelease(buffer);
     }
@@ -438,7 +449,13 @@ void InicializarVehiculo(
     
     (*vehiculo).sprite.indiceAnimacion = tipo*2;
 
-    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);   
+    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);  
+    if (tipo == CAMION_BACK){
+        printf("INICIALIZANDO CAMION_BACK\n");
+        printf("IMAGEN %p\n",(*vehiculo).sprite.imagen);
+        printf("tipoAnimacion %d\n",(*vehiculo).sprite.tipoAnimacion);
+        printf("indiceAnimacion %d\n",(*vehiculo).sprite.indiceAnimacion);
+    } 
 }
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
@@ -528,114 +545,45 @@ void InicializarVehiculos(){
     }
 }
 
-// Instancia los valores por defecto de los vehiculos al inicio de un nivel
-void InicializarElementosRio(){
-    float ultimaPX_Amarillo, ultimaPX_Tractor, ultimaPX_Rosa, ultimaPX_Blanco, ultimaPX_Camion;
-    // Se usa maxCamiones como límite ya que es el array de los obstaculos de carretera mas largo
-    // Luego internamente se comprueba que el indice sea valido para cada columna (cantidad de vehiculos)
-    for(int i = 0; i < maxCamiones; i++){
-        // InicializarCochesAmarillos
-        if(i < maxCochesAmarillos){
-            InicializarVehiculo(
-                &cochesAmarillos[i],
-                COCHE_AMARILLO,
-                IZQUIERDA,
-                3,
-                i == 0 ?  
-                0: 
-                ultimaPX_Amarillo+vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
-            );
-            ultimaPX_Amarillo = cochesAmarillos[i].sprite.collider.P1.x;
-        }
-
-        // InicializarTractores
-        if(i < maxTractores){
-            InicializarVehiculo(
-                &tractores[i],
-                TRACTOR,
-                DERECHA,
-                4,
-                i == 0 ? 
-                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
-                ultimaPX_Tractor-vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
-            );
-
-            ultimaPX_Tractor = tractores[i].sprite.collider.P1.x;
-        }
-
-        // InicializarCochesRosas
-        if(i < maxCochesRosas){
-            InicializarVehiculo(
-                &cochesRosas[i],
-                COCHE_ROSA,
-                IZQUIERDA,
-                5,
-                i == 0 ?  
-                0: 
-                ultimaPX_Amarillo+vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
-            );
-            ultimaPX_Rosa = cochesAmarillos[i].sprite.collider.P1.x;
-        }
-        
-        // InicializarCochesBlancos
-        if(i < maxCochesBlancos){
-            InicializarVehiculo(
-                &cochesBlancos[i],
-                COCHE_BLANCO,
-                DERECHA,
-                6,
-                i == 0 ? 
-                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
-                ultimaPX_Tractor-vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
-            );
-
-            ultimaPX_Tractor = tractores[i].sprite.collider.P1.x;
-        }
-
-        // InicializarCamiones
-        InicializarVehiculo(
-            &camiones[i],
-            i%2 == 0 ? CAMION_FRONT : CAMION_BACK,
-            IZQUIERDA,
-            7,
-            i == 0 ?  
-            0: 
-            ultimaPX_Camion+vehiculosSpriteSheet.spriteWidth, 
-            1,
-            i == 0 ? 0 : i%2==0 ? 2 : 0
-        );
-        ultimaPX_Camion = camiones[i].sprite.collider.P1.x;
+// Instancia los valores por defecto de cada jugador después de morir
+// Pensado para utilizarse después de cada muerte
+void SpawnJugador(Jugador *jugador){
+    for(int i = 0; i < jugadoresActuales; i++){
+        (*jugador).ranaJugador.direccion = ARRIBA;
+        (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
+        (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
+        (*jugador).ranaJugador.sprite.collider.P1 = {
+            VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
+        };
+        (*jugador).ranaJugador.sprite.collider.P2 = {
+            (*jugador).ranaJugador.sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
+            (*jugador).ranaJugador.sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
+        };
+        (*jugador).ranaJugador.isJumping = false;
+        (*jugador).ranaJugador.finSalto = (*jugador).ranaJugador.sprite.collider; 
+        (*jugador).ranaJugador.distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
+        (*jugador).ranaJugador.duracionSalto = 100;
+        (*jugador).ranaJugador.velocidadSalto = ((*jugador).ranaJugador.distanciaSalto/((*jugador).ranaJugador.duracionSalto/(1000.0f/FPS)));
+        (*jugador).ranaJugador.tempSalto = 0;
+        ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
     }
 }
+
 // Instancia los valores por defecto de cada jugador
 // Pensado para utilizarse al inicio de cada partida
 void InicializarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        jugadores[i].direccion = ARRIBA;
-        jugadores[i].sprite.tipoAnimacion = 0;
-        jugadores[i].sprite.indiceAnimacion = 0;
-        jugadores[i].sprite.collider.P1 = {
-            VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
-        };
-        jugadores[i].sprite.collider.P2 = {
-            jugadores[i].sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
-            jugadores[i].sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
-        };
-        jugadores[i].isJumping = false;
-        jugadores[i].finSalto = jugadores[i].sprite.collider; 
-        jugadores[i].distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
-        jugadores[i].duracionSalto = 100;
-        jugadores[i].velocidadSalto = (jugadores[i].distanciaSalto/(jugadores[i].duracionSalto/(1000.0f/FPS)));
-        jugadores[i].tempSalto = 0;
-        ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
+        //Propiedades del jugador al inicio de la partida
+        jugadores[i].isDead = false;
+        jugadores[i].puntuacion = false;
+        jugadores[i].vidas = 3;
+
+        jugadores[i].animMuerte.duracionMuerte = 2000;
+        jugadores[i].animMuerte.tempMuerte = 0;
+        jugadores[i].animMuerte.velocidadAnimacion = animMuerteSpriteSheet.indicesAnim/jugadores[i].animMuerte.duracionMuerte/(1000.0f/FPS);
+
+        //Spawn Rana en posición inicial del jugador
+        SpawnJugador(&jugadores[i]);
     }
 }
 
@@ -694,24 +642,32 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
     }
 }
 
+void MatarJugador(Jugador *jugador){
+    // (*jugador).isDead = true;
+    (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
+    (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
+    (*jugador).animMuerte.tempMuerte = last_time;
+    // ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
+}
+
 //*** DETECCIÓN INPUT DEL JUGADOR ***//
 void DetectarControles(){
     if(pantallaActual == JUEGO){
         // CONTROLES RANA_J1
         // El jugador podrá realizar acciones siempre que:
         //   - No esté saltando
-        if(!jugadores[0].isJumping){
+        if(!jugadores[0].ranaJugador.isJumping){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
-                IniciarSaltoRana(&jugadores[0], ARRIBA);
+                IniciarSaltoRana(&jugadores[0].ranaJugador, ARRIBA);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Right)){
-                IniciarSaltoRana(&jugadores[0], DERECHA);
+                IniciarSaltoRana(&jugadores[0].ranaJugador, DERECHA);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Down)){
-                IniciarSaltoRana(&jugadores[0], ABAJO);
+                IniciarSaltoRana(&jugadores[0].ranaJugador, ABAJO);
             }
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
-                IniciarSaltoRana(&jugadores[0], IZQUIERDA);
+                IniciarSaltoRana(&jugadores[0].ranaJugador, IZQUIERDA);
             }
         }
     }
@@ -731,7 +687,6 @@ void DetectarControles(){
         nivelActual = 0;
         InicializarNivel();
     }
-
     //Alterna la visualización de los colliders
     if(esat::IsSpecialKeyDown(esat::kSpecialKey_Alt)){
         areCollidersVisible = !areCollidersVisible;
@@ -773,12 +728,10 @@ bool DetectarColisionJugador(Collider player_C, Collider object_C) {
 // Todos los vehiculos actuan de la misma forma contra la rana:
 // La rana es atropellada y muere en el acto, activando todos los 
 // eventos que deban ocurrir cuando esta fallece
-void DetectarColisionJugadorFilaVehiculos(Rana *jugador, Vehiculo vehiculos[], int totalVehiculos){
+void DetectarColisionJugadorFilaVehiculos(Jugador *jugador, Vehiculo vehiculos[], int totalVehiculos){
     for(int i = 0; i < totalVehiculos; i++){
-        if(DetectarColisionJugador((*jugador).sprite.collider,vehiculos[i].sprite.collider)){
-            printf("BANG\n");
-            //TO_DO;
-            // EventosMuerteJugador();
+        if(DetectarColisionJugador((*jugador).ranaJugador.sprite.collider,vehiculos[i].sprite.collider)){
+            MatarJugador(&jugadores[i]);
         }
     }
 }
@@ -788,10 +741,13 @@ bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
     return(GetFilaPantallaSprite(sprite) >= fila-1 && GetFilaPantallaSprite(sprite) <= fila+1);
 }
 
-void ComprobarColisionesJugador(Rana *jugador){
+// En función de donde se ubica la rana del jugador, comprueba las colisiones de la fila de la pantalla donde se encuentra y
+// de las adyacentes debido a sus posibles movimientos futuros.
+// Esto permite no tener que comprobar las colisiones de absolutamente todos los obstaculos
+void ComprobarColisionesJugador(Jugador *jugador){
     //Recorre las filas con posibles interacciones con el jugador
     for(int filaComprobar = 3; filaComprobar < VENTANA_Y/ranaBaseSpriteSheet.spriteHeight - 1; filaComprobar++){
-        if(ComprobarFilaActualYAdyacentes((*jugador).sprite,filaComprobar)){
+        if(ComprobarFilaActualYAdyacentes((*jugador).ranaJugador.sprite,filaComprobar)){
             // Si es una fila que en la que se encuentra el jugador o es adyacente, comprueba las colisiones 
             // relacionadas con el jugador correspondientes
             switch(filaComprobar){
@@ -883,19 +839,40 @@ void ActualizarEstadoVehiculos(){
     }
 }
 
+void ActualizarMuerteRanaJugador(Jugador *jugador){
+    //Si la rana del jugador está saltando...
+    // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
+    if(HacerCadaX(&(*jugador).animMuerte.tempMuerte,(*jugador).animMuerte.velocidadAnimacion)){
+        printf("AvanzarExplosion");
+    }else{
+
+    }
+}
+
+void ActualizarSaltoRana(Rana *rana){
+    // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
+    if(HacerDuranteX(&(*rana).tempSalto,(*rana).duracionSalto) && !ComprobarPosicionFinal((*rana).sprite.collider, (*rana).finSalto)){
+        MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).velocidadSalto);
+    }else{
+        (*rana).isJumping = false;
+        (*rana).sprite.indiceAnimacion = 0;
+        ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+    }
+}
+
 void ActualizarEstadoJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         ComprobarColisionesJugador(&jugadores[i]);
 
-        //Si la rana del jugador está saltando...
-        if(jugadores[i].isJumping){
-            // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-            if(HacerDuranteX(&jugadores[i].tempSalto,jugadores[i].duracionSalto) && !ComprobarPosicionFinal(jugadores[i].sprite.collider, jugadores[i].finSalto)){
-                MoveCollider(&jugadores[i].sprite.collider, jugadores[i].direccion, jugadores[i].velocidadSalto);
-            }else{
-                jugadores[i].isJumping = false;
-                jugadores[i].sprite.indiceAnimacion = 0;
-                ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[i].sprite);
+        if(jugadores[i].isDead){
+            //Si la rana del jugador está muerta...
+            ActualizarMuerteRanaJugador(&jugadores[i]);
+        }else{
+            //En caso de que no...
+
+            //Si la rana está saltando actualizará el estado del salto
+            if(jugadores[i].ranaJugador.isJumping){
+                ActualizarSaltoRana(&jugadores[i].ranaJugador);
             }
         }
     }
@@ -956,6 +933,7 @@ void DrawSprite(Sprite sprite, float x, float y, bool isPlayer = false){
     }
 
     if(sprite.isVisible){
+        printf("%p\n",sprite.imagen);
         esat::DrawSprite(sprite.imagen, x, y);
     }
 }
@@ -1008,7 +986,7 @@ void DibujarVehiculos(){
 
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        DrawSprite(jugadores[i].sprite, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y, true);
+        DrawSprite(jugadores[i].ranaJugador.sprite, jugadores[i].ranaJugador.sprite.collider.P1.x, jugadores[i].ranaJugador.sprite.collider.P1.y, true);
     }
 }
 
@@ -1045,6 +1023,7 @@ void DibujarEntorno(){
 }
 
 //*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
+
 void LiberarSpriteSheets(){
     esat::SpriteRelease(animMuerteSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaBaseSpriteSheet.spriteSheet);
@@ -1057,16 +1036,45 @@ void LiberarSpritesBase(){
     esat::SpriteRelease(arbustoSprite);
 }
 
+void LiberarSpritesVehiculos(){
+    for(int i = 0; i < maxCochesAmarillos; i++){
+        if(cochesAmarillos[i].sprite.imagen != NULL){
+            esat::SpriteRelease(cochesAmarillos[i].sprite.imagen);
+        }
+    }
+    for(int i = 0; i < maxTractores; i++){
+        if(tractores[i].sprite.imagen != NULL){
+            esat::SpriteRelease(tractores[i].sprite.imagen);
+        }
+    }
+    for(int i = 0; i < maxCochesRosas; i++){
+        if(cochesRosas[i].sprite.imagen != NULL){
+            esat::SpriteRelease(cochesRosas[i].sprite.imagen);
+        }
+    }
+    for(int i = 0; i < maxCochesBlancos; i++){
+        if(cochesBlancos[i].sprite.imagen != NULL){
+            esat::SpriteRelease(cochesBlancos[i].sprite.imagen);
+        }
+    }
+    for(int i = 0; i < maxCamiones; i++){
+        if(camiones[i].sprite.imagen != NULL){
+            esat::SpriteRelease(camiones[i].sprite.imagen);
+        }
+    }
+}
+
 void LiberarSpritesJugadores(){
     for(int i = 0; i < maxJugadores; i++){
-        if(jugadores[i].sprite.imagen != NULL){
-            esat::SpriteRelease(jugadores[i].sprite.imagen);
+        if(jugadores[i].ranaJugador.sprite.imagen != NULL){
+            esat::SpriteRelease(jugadores[i].ranaJugador.sprite.imagen);
         }
     }
 }
 
 //Libera de memoria todos los spriteHandle inicializados
 void LiberarSprites(){
+    LiberarSpritesVehiculos();
     LiberarSpritesJugadores();
     LiberarSpritesBase();
     LiberarSpriteSheets();
