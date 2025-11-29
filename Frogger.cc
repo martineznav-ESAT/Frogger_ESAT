@@ -68,7 +68,7 @@ struct Sprite{
 struct Rana{
 	Direccion direccion;
 	Sprite sprite;
-    bool isJumping = false;
+    bool isJumping = false, isDead = false;
     // finSalto se encarga de conservar la coordenada final en la
     // que debe aterrizar la rana asegurar su correcto movimiento
     Collider finSalto;
@@ -99,9 +99,12 @@ const unsigned char FPS=60;
 //-- Tiempos para FPS
 double current_time,last_time;
 
+//-- Prototipado
+bool areCollidersVisible = false;
 
 //-- UI
-Pantalla pantallaActual = JUEGO;
+Pantalla pantallaActual = INICIO;
+int nivelActual = 0;
 
 //-- Fin UI
 
@@ -440,7 +443,93 @@ void InicializarVehiculo(
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
 // Instancia los valores por defecto de los vehiculos al inicio de un nivel
-void InicializarCarretera(){
+void InicializarVehiculos(){
+    // Se usa maxCamiones como límite ya que es el array de los obstaculos de carretera mas largo
+    // Luego internamente se comprueba que el indice sea valido para cada columna (cantidad de vehiculos)
+    for(int i = 0; i < maxCamiones; i++){
+        // InicializarCochesAmarillos
+        if(i < maxCochesAmarillos){
+            InicializarVehiculo(
+                &cochesAmarillos[i],
+                COCHE_AMARILLO,
+                IZQUIERDA,
+                // Fila 3 empezando desde abajo
+                3,
+                // Si es el primero, aparece en el borde, si no detras del ultimo + el margen que se le asigne
+                i == 0 ?  
+                0: 
+                cochesAmarillos[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
+                //Velocidad
+                1,
+                // Si es el primero no se le asigna margen.
+                i == 0 ? 0 : 2
+            );
+        }
+
+        // InicializarTractores
+        if(i < maxTractores){
+            InicializarVehiculo(
+                &tractores[i],
+                TRACTOR,
+                DERECHA,
+                4,
+                i == 0 ? 
+                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
+                tractores[i-1].sprite.collider.P1.x-vehiculosSpriteSheet.spriteWidth,
+                1,
+                i == 0 ? 0 : 2
+            );
+        }
+
+        // InicializarCochesRosas
+        if(i < maxCochesRosas){
+            InicializarVehiculo(
+                &cochesRosas[i],
+                COCHE_ROSA,
+                IZQUIERDA,
+                5,
+                i == 0 ?  
+                0: 
+                cochesRosas[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+        }
+        
+        // InicializarCochesBlancos
+        if(i < maxCochesBlancos){
+            InicializarVehiculo(
+                &cochesBlancos[i],
+                COCHE_BLANCO,
+                DERECHA,
+                6,
+                i == 0 ? 
+                VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
+                cochesBlancos[i-1].sprite.collider.P1.x-vehiculosSpriteSheet.spriteWidth, 
+                1,
+                i == 0 ? 0 : 2
+            );
+        }
+
+        // InicializarCamiones
+        InicializarVehiculo(
+            &camiones[i],
+            i%2 == 0 ? CAMION_FRONT : CAMION_BACK,
+            IZQUIERDA,
+            7,
+            i == 0 ?  
+            0: 
+            camiones[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
+            1,
+            // Si es el primero no se le asigna margen.
+            // Si no es el primero, tampoco se le asigna margen si se quiere instanciar la parte trasera del camion
+            i == 0 ? 0 : i%2==0 ? 2 : 0
+        );
+    }
+}
+
+// Instancia los valores por defecto de los vehiculos al inicio de un nivel
+void InicializarElementosRio(){
     float ultimaPX_Amarillo, ultimaPX_Tractor, ultimaPX_Rosa, ultimaPX_Blanco, ultimaPX_Camion;
     // Se usa maxCamiones como límite ya que es el array de los obstaculos de carretera mas largo
     // Luego internamente se comprueba que el indice sea valido para cada columna (cantidad de vehiculos)
@@ -526,7 +615,6 @@ void InicializarCarretera(){
         ultimaPX_Camion = camiones[i].sprite.collider.P1.x;
     }
 }
-
 // Instancia los valores por defecto de cada jugador
 // Pensado para utilizarse al inicio de cada partida
 void InicializarJugadores(){
@@ -535,7 +623,7 @@ void InicializarJugadores(){
         jugadores[i].sprite.tipoAnimacion = 0;
         jugadores[i].sprite.indiceAnimacion = 0;
         jugadores[i].sprite.collider.P1 = {
-            VENTANA_X/2,VENTANA_Y/2
+            VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
         };
         jugadores[i].sprite.collider.P2 = {
             jugadores[i].sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
@@ -551,7 +639,27 @@ void InicializarJugadores(){
     }
 }
 
-//*** INICIO DE ACCIONES DE LOS OBJETOS ***//
+void InicializarNivel(){
+    // Inicialización de cosas interactivas durante la ejecución del nivel
+    InicializarVehiculos();
+    InicializarJugadores();
+}
+
+//*** INICIO DE ACCIONES DE LOS OBJETOS Y JUGADORES***//
+
+// Dada una rana con posicion de finSalto, comprueba si puede realizar ese salto
+// El comportamiento cambiará en función de si se indica que es una rana de jugador o bonus
+bool IsSaltoRanaPosible(Rana rana, bool isPlayer = true){
+    if(isPlayer){
+        return (
+            rana.finSalto.P1.x >=0 && rana.finSalto.P2.x <= VENTANA_X &&
+            rana.finSalto.P1.y >= ranaBaseSpriteSheet.spriteHeight*2 && rana.finSalto.P2.y <= VENTANA_Y-ranaBaseSpriteSheet.spriteHeight
+        );
+    }else{
+        // TO_DO
+        return false;
+    }
+}
 void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
     (*rana).direccion = newDireccion;
     // CALCULA LA POSICION FINAL DONDE DEBE ATERRIZAR
@@ -573,10 +681,17 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
             (*rana).finSalto.P2.x -= (*rana).distanciaSalto;
         break;
     }
-    (*rana).isJumping = true;
-    (*rana).tempSalto = last_time;
-    (*rana).sprite.tipoAnimacion = newDireccion;
-    AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+
+    // Si detecta que la posición final de salto, excede el borde de la pantalla de juego, 
+    // no saltará
+    if(IsSaltoRanaPosible(*rana)){
+        (*rana).isJumping = true;
+        (*rana).tempSalto = last_time;
+        (*rana).sprite.tipoAnimacion = newDireccion;
+        AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+    }else{
+        (*rana).finSalto = (*rana).sprite.collider;
+    }
 }
 
 //*** DETECCIÓN INPUT DEL JUGADOR ***//
@@ -613,10 +728,121 @@ void DetectarControles(){
     if(esat::IsKeyDown('3')){
         printf("JUEGO\n");
         pantallaActual = JUEGO;
+        nivelActual = 0;
+        InicializarNivel();
+    }
+
+    //Alterna la visualización de los colliders
+    if(esat::IsSpecialKeyDown(esat::kSpecialKey_Alt)){
+        areCollidersVisible = !areCollidersVisible;
+        if(areCollidersVisible){
+            printf("SHOWING COLLIDERS\n");
+        }else{
+            printf("HIDDEN COLLIDERS\n");
+        }
     }
 }
 
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
+
+// Dados 2 collider, comprueba si hay colisión entre ellos
+bool DetectarColision(Collider C1, Collider C2) {
+  return (C1.P2.x >= C2.P1.x) &&
+         (C1.P1.x <= C2.P2.x) &&
+         (C1.P2.y >= C2.P1.y) &&
+         (C1.P1.y <= C2.P2.y);
+}
+
+
+float GetFilaPantallaSprite(Sprite s){
+    return (VENTANA_Y-s.collider.P1.y)/ranaBaseSpriteSheet.spriteHeight;
+}
+float GetColumnaPantallaSprite(Sprite s){
+    return s.collider.P1.x/ranaBaseSpriteSheet.spriteWidth;
+}
+
+// Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision 
+// y comprueba si hay colisión entre ellos
+bool DetectarColisionJugador(Collider player_C, Collider object_C) {
+  return (player_C.P2.x-6 > object_C.P1.x) &&
+         (player_C.P1.x+6 < object_C.P2.x) &&
+         (player_C.P2.y-6 > object_C.P1.y) &&
+         (player_C.P1.y+6 < object_C.P2.y);
+}
+
+// Todos los vehiculos actuan de la misma forma contra la rana:
+// La rana es atropellada y muere en el acto, activando todos los 
+// eventos que deban ocurrir cuando esta fallece
+void DetectarColisionJugadorFilaVehiculos(Rana *jugador, Vehiculo vehiculos[], int totalVehiculos){
+    for(int i = 0; i < totalVehiculos; i++){
+        if(DetectarColisionJugador((*jugador).sprite.collider,vehiculos[i].sprite.collider)){
+            printf("BANG\n");
+            //TO_DO;
+            // EventosMuerteJugador();
+        }
+    }
+}
+
+// Dado un sprite y una fila, devuelve verdadero si debería comprobar la fila pasada por parametro y sus adyacentes al estar el sprite ubicado en una de ellas
+bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
+    return(GetFilaPantallaSprite(sprite) >= fila-1 && GetFilaPantallaSprite(sprite) <= fila+1);
+}
+
+void ComprobarColisionesJugador(Rana *jugador){
+    //Recorre las filas con posibles interacciones con el jugador
+    for(int filaComprobar = 3; filaComprobar < VENTANA_Y/ranaBaseSpriteSheet.spriteHeight - 1; filaComprobar++){
+        if(ComprobarFilaActualYAdyacentes((*jugador).sprite,filaComprobar)){
+            // Si es una fila que en la que se encuentra el jugador o es adyacente, comprueba las colisiones 
+            // relacionadas con el jugador correspondientes
+            switch(filaComprobar){
+                //FINAL
+                case 14:
+                    // printf("FINAL\n");
+                break;
+                // RIO
+                case 13:
+                    // printf("FILA_RIO_5\n");
+                break;
+                case 12:
+                    // printf("FILA_RIO_4\n");
+                break;
+                case 11:
+                    // printf("FILA_RIO_3\n");
+                break;
+                case 10:
+                    // printf("FILA_RIO_2\n");
+                break;
+                case 9:
+                    // printf("FILA_RIO_1\n");
+                break;
+
+                //CARRETERA
+                case 7:
+                    // printf("CAMION\n");
+                    DetectarColisionJugadorFilaVehiculos(&(*jugador),camiones, maxCamiones);
+                break;
+                case 6:
+                    // printf("COCHE BLANCO\n");
+                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesBlancos, maxCochesBlancos);
+                break;
+                case 5:
+                    // printf("COCHE ROSA\n");
+                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesRosas, maxCochesRosas);
+                break;
+                case 4:
+                    // printf("TRACTOR\n");
+                    DetectarColisionJugadorFilaVehiculos(&(*jugador),tractores, maxTractores);
+                break;
+                case 3:
+                    // printf("COCHE AMARILLO\n");
+                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesAmarillos, maxCochesAmarillos);
+                break;
+            }
+        }
+    }
+    // printf("\n");
+}
+
 void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
     if(ComprobarSalidaVentanaSprite(&(*vehiculo).sprite,(*vehiculo).direccion)){
         RellocateSpriteOnBorderEscape(&(*vehiculo).sprite, (*vehiculo).direccion);
@@ -659,6 +885,8 @@ void ActualizarEstadoVehiculos(){
 
 void ActualizarEstadoJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
+        ComprobarColisionesJugador(&jugadores[i]);
+
         //Si la rana del jugador está saltando...
         if(jugadores[i].isJumping){
             // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
@@ -675,13 +903,69 @@ void ActualizarEstadoJugadores(){
 
 void ActualizarEstadoJuego(){
     //TO_DO
-    // DetectarColisiones();
     ActualizarEstadoVehiculos();
     ActualizarEstadoJugadores();
 }
 
+void ActualizarEstados(){
+    switch(pantallaActual){
+        case INICIO:
+            break;
+        case MENU:
+            break;
+        case JUEGO:
+            ActualizarEstadoJuego();
+            break;
+    }
+}
+
 
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
+void DrawCollider(Collider collider){
+    float coords[10] = {
+        collider.P1.x,
+        collider.P1.y,
+
+        collider.P1.x,
+        collider.P2.y,
+        
+        collider.P2.x,
+        collider.P2.y,
+        
+        collider.P2.x,
+        collider.P1.y,
+
+        collider.P1.x,
+        collider.P1.y,
+    };
+    esat::DrawSetStrokeColor(0,255,0);
+    esat::DrawPath(coords,5);
+}
+
+void DrawSprite(Sprite sprite, float x, float y, bool isPlayer = false){
+    if(areCollidersVisible && sprite.isActive){
+        if(isPlayer){
+            DrawCollider({
+                    {sprite.collider.P1.x+6, sprite.collider.P1.y+6},
+                    {sprite.collider.P2.x-6, sprite.collider.P2.y-6}
+                }
+            );
+        }else{
+            DrawCollider(sprite.collider);
+        }
+    }
+
+    if(sprite.isVisible){
+        esat::DrawSprite(sprite.imagen, x, y);
+    }
+}
+
+void DibujarFondoRio(){
+    float coords[10] = {0,0,0,VENTANA_Y/2,VENTANA_X,VENTANA_Y/2,VENTANA_X,0,0,0};
+    esat::DrawSetFillColor(0,0,70);
+    esat::DrawSolidPath(coords,5);
+}
+
 void DibujarArbustos(){
     int posInicial_X = 0;
     int posActual_X;
@@ -703,28 +987,28 @@ void DibujarArbustos(){
 void DibujarVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
-            esat::DrawSprite(cochesAmarillos[i].sprite.imagen, cochesAmarillos[i].sprite.collider.P1.x, cochesAmarillos[i].sprite.collider.P1.y);
+            DrawSprite(cochesAmarillos[i].sprite, cochesAmarillos[i].sprite.collider.P1.x, cochesAmarillos[i].sprite.collider.P1.y);
         }
 
         if(i < maxTractores){
-            esat::DrawSprite(tractores[i].sprite.imagen, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
+            DrawSprite(tractores[i].sprite, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
         }
 
         if(i < maxCochesRosas){
-            esat::DrawSprite(cochesRosas[i].sprite.imagen, cochesRosas[i].sprite.collider.P1.x, cochesRosas[i].sprite.collider.P1.y);
+            DrawSprite(cochesRosas[i].sprite, cochesRosas[i].sprite.collider.P1.x, cochesRosas[i].sprite.collider.P1.y);
         }
         
         if(i < maxCochesBlancos){
-            esat::DrawSprite(cochesBlancos[i].sprite.imagen, cochesBlancos[i].sprite.collider.P1.x, cochesBlancos[i].sprite.collider.P1.y);
+            DrawSprite(cochesBlancos[i].sprite, cochesBlancos[i].sprite.collider.P1.x, cochesBlancos[i].sprite.collider.P1.y);
         }
 
-        esat::DrawSprite(camiones[i].sprite.imagen, camiones[i].sprite.collider.P1.x, camiones[i].sprite.collider.P1.y);
+        DrawSprite(camiones[i].sprite, camiones[i].sprite.collider.P1.x, camiones[i].sprite.collider.P1.y);
     }
 }
 
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        esat::DrawSprite(jugadores[i].sprite.imagen, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y);
+        DrawSprite(jugadores[i].sprite, jugadores[i].sprite.collider.P1.x, jugadores[i].sprite.collider.P1.y, true);
     }
 }
 
@@ -734,8 +1018,15 @@ void DibujarJuego(){
     DibujarJugadores();
 }
 
+// Es la única función que se debe llamar en el main. 
+// Se ocupa del dibujado de todos los elementos en pantalla mediante subrutinas
 void DibujarEntorno(){
-    // DibujarCabecera()
+    // Se dibuja primero el fondo del rio para que siempre aparezca por debajo de todos los
+    // demás dibujados
+    DibujarFondoRio();
+
+    // Dibuja todo lo que aparezca en la zona central de la ventana
+    // En función de la pantalla seleccionada
     switch(pantallaActual){
         case INICIO:
             break;
@@ -745,6 +1036,11 @@ void DibujarEntorno(){
             DibujarJuego();
             break;
     }
+
+    // Se dibuja lo ultimo para asegurarnos de que se muestra por encima 
+    // de todo como la UI que es
+    //TO_DO
+    // DibujarCabecera()
     // DibujarPie();
 }
 
@@ -789,9 +1085,6 @@ int esat::main(int argc, char **argv) {
     InicializarSpriteSheets();
     InicializarSprites();
 
-    // Inicialización de cosas interactivas durante la ejecución de JUEGO
-    InicializarCarretera();
-    InicializarJugadores();
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
         last_time = esat::Time(); 
@@ -803,7 +1096,7 @@ int esat::main(int argc, char **argv) {
         //INPUT
         DetectarControles();
         //UPDATE
-        ActualizarEstadoJuego();
+        ActualizarEstados();
         //DRAW
         DibujarEntorno();
 
