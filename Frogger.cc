@@ -458,6 +458,10 @@ void InicializarVehiculo(
 }
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
+void InicializarRio(){
+    //TO_DO
+}
+
 // Instancia los valores por defecto de los vehiculos al inicio de un nivel
 void InicializarVehiculos(){
     // Se usa maxCamiones como límite ya que es el array de los obstaculos de carretera mas largo
@@ -588,6 +592,7 @@ void InicializarJugadores(){
 
 void InicializarNivel(){
     // Inicialización de cosas interactivas durante la ejecución del nivel
+    InicializarRio();
     InicializarVehiculos();
     InicializarJugadores();
 }
