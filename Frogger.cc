@@ -149,6 +149,12 @@ int ranasSpriteSheet_Coords[16];
 SpriteSheet vehiculosSpriteSheet;
 int vehiculosSpriteSheet_Coords[12];
 
+SpriteSheet tortugaSpriteSheet;
+int tortugaSpriteSheet_Coords[12];
+
+SpriteSheet troncoSpriteSheet;
+int troncoSpriteSheet_Coords[6];
+
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
 //  -No necesitan collider
@@ -168,7 +174,7 @@ Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos
 Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
 
 const int filasRio = 5;
-const int maxTortugas_1 = 12, maxTroncos_1 = 9, maxTroncos_2 = 12, 
+const int maxTortugas_1 = 12, maxTroncos_1 = 9, maxTroncos_2 = 12;
 const int maxTortugas_2 = 10, maxTroncos_3 = 12;
 
 
@@ -275,57 +281,67 @@ bool ComprobarSalidaVentanaSprite(Sprite *sprite, Direccion direccion){
     return isOut;
 }
 
-// Inicializa todos los valores de todos los SpriteSheets para ser utilizables durante el resto de la ejecución del programa
-//
 // Se guardan en sus structs correspondientes para facilitar su uso y legibilidad durante el proyecto
 // Los archivos de hojas de sprite en .png se ubican en ./Recursos/Imagenes/SpriteSheets/*.png
+void InicializarSpriteSheet(char rutaSpriteSheetPNG[], SpriteSheet *spriteSheet, int spriteSheet_Coords[], int tiposAnim, int indicesAnim, bool ignoreCoords = false){
+    (*spriteSheet).spriteSheet = esat::SpriteFromFile(rutaSpriteSheetPNG);
+    (*spriteSheet).tiposAnim = tiposAnim;
+    (*spriteSheet).indicesAnim = indicesAnim;
+    (*spriteSheet).coordsAnim = (*spriteSheet).indicesAnim * 2;
+    (*spriteSheet).totalCoordsAnim = (*spriteSheet).tiposAnim * (*spriteSheet).coordsAnim;
+    (*spriteSheet).spriteWidth = (esat::SpriteWidth((*spriteSheet).spriteSheet) / (*spriteSheet).indicesAnim);
+    (*spriteSheet).spriteHeight = (esat::SpriteHeight((*spriteSheet).spriteSheet) / (*spriteSheet).tiposAnim);
+    if(!ignoreCoords){
+        InicializarCoordsSpriteSheet(&(*spriteSheet), spriteSheet_Coords);
+    }
+}
 
+// Inicializa todos los valores de todos los SpriteSheets para ser utilizables durante el resto de la ejecución del programa
 void InicializarSpriteSheets(){
     //Inicializa el SpriteSheet de la animación de muerte del jugador
-    animMuerteSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/AnimMuerteSpriteSheet.png");
-    animMuerteSpriteSheet.tiposAnim = 1;
-    animMuerteSpriteSheet.indicesAnim = 7;
-    animMuerteSpriteSheet.coordsAnim = animMuerteSpriteSheet.indicesAnim*2;
-    animMuerteSpriteSheet.totalCoordsAnim = animMuerteSpriteSheet.tiposAnim * animMuerteSpriteSheet.coordsAnim;
-    animMuerteSpriteSheet.spriteWidth = (esat::SpriteWidth(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.indicesAnim);
-    animMuerteSpriteSheet.spriteHeight = (esat::SpriteHeight(animMuerteSpriteSheet.spriteSheet)/animMuerteSpriteSheet.tiposAnim);
-    InicializarCoordsSpriteSheet(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords);
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/AnimMuerteSpriteSheet.png",
+        &animMuerteSpriteSheet,
+        animMuerteSpriteSheet_Coords,
+        1,
+        7
+    );
 
     // Inicializa los SpriteSheets de las ranas en todos sus colores y el array de sus coordenadas
-    ranaBaseSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaBaseSpriteSheet.png");
-    ranaBaseSpriteSheet.tiposAnim = 4;
-    ranaBaseSpriteSheet.indicesAnim = 2;
-    ranaBaseSpriteSheet.coordsAnim = ranaBaseSpriteSheet.indicesAnim*2;
-    ranaBaseSpriteSheet.totalCoordsAnim = ranaBaseSpriteSheet.tiposAnim * ranaBaseSpriteSheet.coordsAnim;
-    ranaBaseSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaBaseSpriteSheet.spriteSheet)/ranaBaseSpriteSheet.indicesAnim);
-    ranaBaseSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaBaseSpriteSheet.spriteSheet)/ranaBaseSpriteSheet.tiposAnim);
-
-    ranaRosaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRosaSpriteSheet.png");
-    ranaRosaSpriteSheet.tiposAnim = 4;
-    ranaRosaSpriteSheet.indicesAnim = 2;
-    ranaRosaSpriteSheet.coordsAnim = ranaRosaSpriteSheet.indicesAnim*2;
-    ranaRosaSpriteSheet.totalCoordsAnim = ranaRosaSpriteSheet.tiposAnim * ranaRosaSpriteSheet.coordsAnim;
-    ranaRosaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.indicesAnim);
-    ranaRosaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRosaSpriteSheet.spriteSheet)/ranaRosaSpriteSheet.tiposAnim);
-
-    ranaRojaSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png");
-    ranaRojaSpriteSheet.tiposAnim = 4;
-    ranaRojaSpriteSheet.indicesAnim = 2;
-    ranaRojaSpriteSheet.coordsAnim = ranaRojaSpriteSheet.indicesAnim*2;
-    ranaRojaSpriteSheet.totalCoordsAnim = ranaRojaSpriteSheet.tiposAnim * ranaRojaSpriteSheet.coordsAnim;
-    ranaRojaSpriteSheet.spriteWidth = (esat::SpriteWidth(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.indicesAnim);
-    ranaRojaSpriteSheet.spriteHeight = (esat::SpriteHeight(ranaRojaSpriteSheet.spriteSheet)/ranaRojaSpriteSheet.tiposAnim);
-    InicializarCoordsSpriteSheet(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords);
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/RanaBaseSpriteSheet.png",
+        &ranaBaseSpriteSheet,
+        ranasSpriteSheet_Coords,
+        4,
+        2
+    );
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/RanaRosaSpriteSheet.png",
+        &ranaRosaSpriteSheet,
+        ranasSpriteSheet_Coords,
+        4,
+        2,
+        true
+    );
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/RanaRojaSpriteSheet.png",
+        &ranaRojaSpriteSheet,
+        ranasSpriteSheet_Coords,
+        4,
+        2,
+        true
+    );
 
     // Inicializa el SpriteSheet de los vehiculos y su array de coordenadas
-    vehiculosSpriteSheet.spriteSheet = esat::SpriteFromFile("./Recursos/Imagenes/SpriteSheets/VehiculosSpriteSheet.png");
-    vehiculosSpriteSheet.tiposAnim = 1;
-    vehiculosSpriteSheet.indicesAnim = 6;
-    vehiculosSpriteSheet.coordsAnim = vehiculosSpriteSheet.indicesAnim*2;
-    vehiculosSpriteSheet.totalCoordsAnim = vehiculosSpriteSheet.tiposAnim * vehiculosSpriteSheet.coordsAnim;
-    vehiculosSpriteSheet.spriteWidth = (esat::SpriteWidth(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.indicesAnim);
-    vehiculosSpriteSheet.spriteHeight = (esat::SpriteHeight(vehiculosSpriteSheet.spriteSheet)/vehiculosSpriteSheet.tiposAnim);
-    InicializarCoordsSpriteSheet(&vehiculosSpriteSheet, vehiculosSpriteSheet_Coords);
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/VehiculosSpriteSheet.png",
+        &vehiculosSpriteSheet,
+        vehiculosSpriteSheet_Coords,
+        1,
+        6
+    );
+
+    // Inicializa el SpriteSheet de las tortugas y su array de coordenadas
 }
 
 void InicializarSprites(){
@@ -602,7 +618,7 @@ void InicializarJugadores(){
         jugadores[i].puntuacion = false;
         jugadores[i].vidas = 3;
 
-        jugadores[i].animMuerte.duracionMuerte = 1000;
+        jugadores[i].animMuerte.duracionMuerte = 2000;
         jugadores[i].animMuerte.tempMuerte = 0;
         // La velocidad de animación es cada cuanto debe de avanzar el frame de animacion para completarla en duracionMuerte
         jugadores[i].animMuerte.velocidadAnimacion = jugadores[i].animMuerte.duracionMuerte/animMuerteSpriteSheet.indicesAnim;
