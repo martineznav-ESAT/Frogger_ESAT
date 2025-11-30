@@ -62,7 +62,7 @@ struct Sprite{
     // tipoAnimacion -> El set de indiceAnimacion a usar (Fila en spritesheet);
     // indiceAnimacion -> Secuencia de la animación a usar (Columna en spritesheet);
     unsigned char tipoAnimacion = 0, indiceAnimacion = 0;
-    bool isVisible = true, isActive = true; 
+    bool isVisible = true, isActive = true; //isActive indica si está dispuesto a comprobar colisiones
 };
 
 struct Rana{
@@ -83,7 +83,6 @@ struct AnimMuerteJugador{
 struct Jugador{
     Rana ranaJugador;
     int puntuacion = 0, vidas = 0;
-    bool isDead = false;
     AnimMuerteJugador animMuerte;
 };
 
@@ -545,28 +544,27 @@ void InicializarVehiculos(){
     }
 }
 
-// Instancia los valores por defecto de cada jugador después de morir
-// Pensado para utilizarse después de cada muerte
+// Instancia los valores por defecto del jugador
+// Pensado para utilizarse después de cada muerte para ubicar al jugador en su posicion inicial
 void SpawnJugador(Jugador *jugador){
-    for(int i = 0; i < jugadoresActuales; i++){
-        (*jugador).ranaJugador.direccion = ARRIBA;
-        (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
-        (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
-        (*jugador).ranaJugador.sprite.collider.P1 = {
-            VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
-        };
-        (*jugador).ranaJugador.sprite.collider.P2 = {
-            (*jugador).ranaJugador.sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
-            (*jugador).ranaJugador.sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
-        };
-        (*jugador).ranaJugador.isJumping = false;
-        (*jugador).ranaJugador.finSalto = (*jugador).ranaJugador.sprite.collider; 
-        (*jugador).ranaJugador.distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
-        (*jugador).ranaJugador.duracionSalto = 100;
-        (*jugador).ranaJugador.velocidadSalto = ((*jugador).ranaJugador.distanciaSalto/((*jugador).ranaJugador.duracionSalto/(1000.0f/FPS)));
-        (*jugador).ranaJugador.tempSalto = 0;
-        ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
-    }
+    (*jugador).ranaJugador.sprite.isActive = true;
+    (*jugador).ranaJugador.direccion = ARRIBA;
+    (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
+    (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
+    (*jugador).ranaJugador.sprite.collider.P1 = {
+        VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
+    };
+    (*jugador).ranaJugador.sprite.collider.P2 = {
+        (*jugador).ranaJugador.sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
+        (*jugador).ranaJugador.sprite.collider.P1.y + ranaBaseSpriteSheet.spriteHeight
+    };
+    (*jugador).ranaJugador.isJumping = false;
+    (*jugador).ranaJugador.finSalto = (*jugador).ranaJugador.sprite.collider; 
+    (*jugador).ranaJugador.distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
+    (*jugador).ranaJugador.duracionSalto = 100;
+    (*jugador).ranaJugador.velocidadSalto = ((*jugador).ranaJugador.distanciaSalto/((*jugador).ranaJugador.duracionSalto/(1000.0f/FPS)));
+    (*jugador).ranaJugador.tempSalto = 0;
+    ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
 // Instancia los valores por defecto de cada jugador
@@ -574,13 +572,14 @@ void SpawnJugador(Jugador *jugador){
 void InicializarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         //Propiedades del jugador al inicio de la partida
-        jugadores[i].isDead = false;
+        jugadores[i].ranaJugador.sprite.isActive = true;
         jugadores[i].puntuacion = false;
         jugadores[i].vidas = 3;
 
-        jugadores[i].animMuerte.duracionMuerte = 2000;
+        jugadores[i].animMuerte.duracionMuerte = 1000;
         jugadores[i].animMuerte.tempMuerte = 0;
-        jugadores[i].animMuerte.velocidadAnimacion = animMuerteSpriteSheet.indicesAnim/jugadores[i].animMuerte.duracionMuerte/(1000.0f/FPS);
+        // La velocidad de animación es cada cuanto debe de avanzar el frame de animacion para completarla en duracionMuerte
+        jugadores[i].animMuerte.velocidadAnimacion = jugadores[i].animMuerte.duracionMuerte/animMuerteSpriteSheet.indicesAnim;
 
         //Spawn Rana en posición inicial del jugador
         SpawnJugador(&jugadores[i]);
@@ -643,11 +642,11 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
 }
 
 void MatarJugador(Jugador *jugador){
-    // (*jugador).isDead = true;
+    (*jugador).ranaJugador.sprite.isActive = false;
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
     (*jugador).animMuerte.tempMuerte = last_time;
-    // ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
+    ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
 //*** DETECCIÓN INPUT DEL JUGADOR ***//
@@ -731,7 +730,7 @@ bool DetectarColisionJugador(Collider player_C, Collider object_C) {
 void DetectarColisionJugadorFilaVehiculos(Jugador *jugador, Vehiculo vehiculos[], int totalVehiculos){
     for(int i = 0; i < totalVehiculos; i++){
         if(DetectarColisionJugador((*jugador).ranaJugador.sprite.collider,vehiculos[i].sprite.collider)){
-            MatarJugador(&jugadores[i]);
+            MatarJugador(&(*jugador));
         }
     }
 }
@@ -745,58 +744,61 @@ bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
 // de las adyacentes debido a sus posibles movimientos futuros.
 // Esto permite no tener que comprobar las colisiones de absolutamente todos los obstaculos
 void ComprobarColisionesJugador(Jugador *jugador){
-    //Recorre las filas con posibles interacciones con el jugador
-    for(int filaComprobar = 3; filaComprobar < VENTANA_Y/ranaBaseSpriteSheet.spriteHeight - 1; filaComprobar++){
-        if(ComprobarFilaActualYAdyacentes((*jugador).ranaJugador.sprite,filaComprobar)){
-            // Si es una fila que en la que se encuentra el jugador o es adyacente, comprueba las colisiones 
-            // relacionadas con el jugador correspondientes
-            switch(filaComprobar){
-                //FINAL
-                case 14:
-                    // printf("FINAL\n");
-                break;
-                // RIO
-                case 13:
-                    // printf("FILA_RIO_5\n");
-                break;
-                case 12:
-                    // printf("FILA_RIO_4\n");
-                break;
-                case 11:
-                    // printf("FILA_RIO_3\n");
-                break;
-                case 10:
-                    // printf("FILA_RIO_2\n");
-                break;
-                case 9:
-                    // printf("FILA_RIO_1\n");
-                break;
+    //Recorre las filas con posibles interacciones con el jugador si está activo
+    if((*jugador).ranaJugador.sprite.isActive){
+        for(int filaComprobar = 3; filaComprobar < VENTANA_Y/ranaBaseSpriteSheet.spriteHeight - 1; filaComprobar++){
+            if(ComprobarFilaActualYAdyacentes((*jugador).ranaJugador.sprite,filaComprobar)){
+                // Si es una fila que en la que se encuentra el jugador o es adyacente, comprueba las colisiones 
+                // relacionadas con el jugador correspondientes
+                switch(filaComprobar){
+                    //FINAL
+                    case 14:
+                        // printf("FINAL\n");
+                    break;
+                    // RIO
+                    case 13:
+                        // printf("FILA_RIO_5\n");
+                    break;
+                    case 12:
+                        // printf("FILA_RIO_4\n");
+                    break;
+                    case 11:
+                        // printf("FILA_RIO_3\n");
+                    break;
+                    case 10:
+                        // printf("FILA_RIO_2\n");
+                    break;
+                    case 9:
+                        // printf("FILA_RIO_1\n");
+                    break;
 
-                //CARRETERA
-                case 7:
-                    // printf("CAMION\n");
-                    DetectarColisionJugadorFilaVehiculos(&(*jugador),camiones, maxCamiones);
-                break;
-                case 6:
-                    // printf("COCHE BLANCO\n");
-                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesBlancos, maxCochesBlancos);
-                break;
-                case 5:
-                    // printf("COCHE ROSA\n");
-                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesRosas, maxCochesRosas);
-                break;
-                case 4:
-                    // printf("TRACTOR\n");
-                    DetectarColisionJugadorFilaVehiculos(&(*jugador),tractores, maxTractores);
-                break;
-                case 3:
-                    // printf("COCHE AMARILLO\n");
-                    DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesAmarillos, maxCochesAmarillos);
-                break;
+                    //CARRETERA
+                    case 7:
+                        // printf("CAMION\n");
+                        DetectarColisionJugadorFilaVehiculos(&(*jugador),camiones, maxCamiones);
+                    break;
+                    case 6:
+                        // printf("COCHE BLANCO\n");
+                        DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesBlancos, maxCochesBlancos);
+                    break;
+                    case 5:
+                        // printf("COCHE ROSA\n");
+                        DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesRosas, maxCochesRosas);
+                    break;
+                    case 4:
+                        // printf("TRACTOR\n");
+                        DetectarColisionJugadorFilaVehiculos(&(*jugador),tractores, maxTractores);
+                    break;
+                    case 3:
+                        // printf("COCHE AMARILLO\n");
+                        DetectarColisionJugadorFilaVehiculos(&(*jugador),cochesAmarillos, maxCochesAmarillos);
+                    break;
+                }
             }
         }
+        // printf("\n");
     }
-    // printf("\n");
+
 }
 
 void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
@@ -839,13 +841,14 @@ void ActualizarEstadoVehiculos(){
     }
 }
 
+//Actualización del estado de la animacion de muerte del jugador 
 void ActualizarMuerteRanaJugador(Jugador *jugador){
-    //Si la rana del jugador está saltando...
-    // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-    if(HacerCadaX(&(*jugador).animMuerte.tempMuerte,(*jugador).animMuerte.velocidadAnimacion)){
-        printf("AvanzarExplosion");
-    }else{
-
+    if(HacerCadaX(&(*jugador).animMuerte.tempMuerte, (*jugador).animMuerte.velocidadAnimacion)){
+        if((*jugador).ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
+            SpawnJugador(&(*jugador));
+        }else{
+            AvanzarSpriteAnimado(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
+        }
     }
 }
 
@@ -864,7 +867,7 @@ void ActualizarEstadoJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
         ComprobarColisionesJugador(&jugadores[i]);
 
-        if(jugadores[i].isDead){
+        if(!jugadores[i].ranaJugador.sprite.isActive){
             //Si la rana del jugador está muerta...
             ActualizarMuerteRanaJugador(&jugadores[i]);
         }else{
@@ -933,7 +936,6 @@ void DrawSprite(Sprite sprite, float x, float y, bool isPlayer = false){
     }
 
     if(sprite.isVisible){
-        printf("%p\n",sprite.imagen);
         esat::DrawSprite(sprite.imagen, x, y);
     }
 }
