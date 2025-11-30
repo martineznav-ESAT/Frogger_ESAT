@@ -93,6 +93,23 @@ struct Vehiculo{
     float velocidadMovimiento;
 };
 
+struct Troncodrilo{
+    Direccion direccion;
+	Sprite sprite;
+    float velocidadMovimiento;
+    // Si no es un tronco, será un cocodrilo
+    bool isTronco = true;
+    int longTronco = 3;
+};
+
+struct Tortuga{
+    Direccion direccion;
+	Sprite sprite;
+    float velocidadMovimiento;
+    // Indica si la tortuga tiene la posibilidad de hundirse o no
+    bool isSecure = true;
+};
+
 /* FIN STRUCTS */
 
 /* GLOBALES */
@@ -149,6 +166,11 @@ const int maxCamiones = 8, maxCochesBlancos = 4, maxCochesAmarillos = 4;
 const int maxCochesRosas = 5, maxTractores = 4;
 Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos[maxCochesAmarillos]; 
 Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
+
+const int filasRio = 5;
+const int maxTortugas_1 = 12, maxTroncos_1 = 9, maxTroncos_2 = 12, 
+const int maxTortugas_2 = 10, maxTroncos_3 = 12;
+
 
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
@@ -1027,7 +1049,7 @@ void DibujarEntorno(){
     //TO_DO
     // DibujarCabecera()
     // DibujarPie();
-}
+} 
 
 //*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
 
