@@ -507,6 +507,10 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
 //TO_DO GESTION DE INFORMACIÓN EN BASE AL NIVEL
 
+bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
+    return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
+}
+
 // Inicializar valores de una fila de tortugas donde:
 // longitud  -> Indica el tamaño de cada grupo de tortugas
 // margen    -> Indica la cantidad de espaciado entre grupos de la fila (Tortugas Inactivas)
@@ -529,7 +533,7 @@ void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float
         tortugas[i].animSumergir.temporizador = 0;
         tortugas[i].animSumergir.velocidad = tortugas[i].animSumergir.duracion/tortugaSpriteSheet.indicesAnim;
 
-        if(alternator && longitud > 0){
+        if(alternator && longitud > 0 && CabeGrupoObstaculos(contador,i,longitud)){
             //Inicializar grupo
             tortugas[i].sprite.isVisible = true;
             tortugas[i].sprite.isActive = true;
@@ -556,14 +560,63 @@ void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float
         }
         ActualizarSprite(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&tortugas[i].sprite);
     }
-    printf("\n\n");
 }
 
-// Inicializar valores de una fila de troncodrilos donde:
-// longitud  -> Indica la longitud del tronco
-// margen    -> Indica la cantidad de espaciado entre grupos de la fila
+// Inicializar valores de una fila de tortugas donde:
+// longitud  -> Indica el tamaño del tronco
+// margen    -> Indica la cantidad de espaciado entre troncos
+// velocidad -> Indica la velocidad a la que se moveran las tortugas
+// filaRio   -> Indica la fila del rio en la que está para ubicarse en Y
 void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int margen, float velocidad, FilaRio filaRio){
+    // alternator indica cuando debe inicializar en base a la longitud o al margen (por defecto empieza por la longitud)
+    bool alternator = true;
+    int contador = 0;
+    
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        troncodrilos[i].direccion = DERECHA;
+        troncodrilos[i].velocidadMovimiento = velocidad;
+        troncodrilos[i].sprite.collider.P1 = {((float)i*troncoSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-((float)filaRio*troncoSpriteSheet.spriteHeight))};
+        troncodrilos[i].sprite.collider.P2 = {((float)(i+1)*troncoSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-((float)filaRio*troncoSpriteSheet.spriteHeight))};
+        troncodrilos[i].sprite.tipoAnimacion = 0;
 
+        printf("i+longitud %d\n",i+longitud);
+        printf("VENTANA_COLUMNAS %d\n",VENTANA_COLUMNAS);
+        if(i+longitud < VENTANA_COLUMNAS){
+            printf("PASS\n");
+        }
+        printf("\n\n");
+        if(alternator && longitud > 0 && CabeGrupoObstaculos(contador,i,longitud)){
+            //Inicializar grupo
+            troncodrilos[i].sprite.isVisible = true;
+            troncodrilos[i].sprite.isActive = true;
+
+            // Construye los troncos
+            if(contador == 0){
+                troncodrilos[i].sprite.indiceAnimacion = 0;
+            }else{
+                if(contador == longitud-1){
+                    troncodrilos[i].sprite.indiceAnimacion = troncoSpriteSheet.coordsAnim-2;
+                }else{
+                    troncodrilos[i].sprite.indiceAnimacion = 2;
+                }
+            }
+            
+            ++contador %= longitud;
+            if(contador == 0){
+                alternator = !alternator;
+            }
+        }else{
+            //Inicializar "margen"
+            troncodrilos[i].sprite.isVisible = false;
+            troncodrilos[i].sprite.isActive = false;
+
+            ++contador %= margen;
+            if(contador == 0){
+                alternator = !alternator;
+            }
+        }
+        ActualizarSprite(&troncoSpriteSheet,troncoSpriteSheet_Coords,&troncodrilos[i].sprite);
+    }
 }
 
 // Instancia los valores de la fila correspondiente
@@ -1076,15 +1129,15 @@ void ActualizarEstadoRio(){
             case FILA_RIO_3:
                 ActualizarEstadoFilaRio(tortugas_2);
             break;
-            // case FILA_RIO_1:
-            //     DibujarFilaRio(troncos_1);
-            // break;
-            // case FILA_RIO_2:
-            //     DibujarFilaRio(troncos_2);
-            // break;
-            // case FILA_RIO_4:
-            //     DibujarFilaRio(troncos_3);
-            // break;
+            case FILA_RIO_1:
+                ActualizarEstadoFilaRio(troncos_1);
+            break;
+            case FILA_RIO_2:
+                ActualizarEstadoFilaRio(troncos_2);
+            break;
+            case FILA_RIO_4:
+                ActualizarEstadoFilaRio(troncos_3);
+            break;
 
         }
     }
@@ -1274,15 +1327,15 @@ void DibujarRio(){
             case FILA_RIO_3:
                 DibujarFilaRio(tortugas_2);
             break;
-            // case FILA_RIO_1:
-            //     DibujarFilaRio(troncos_1);
-            // break;
-            // case FILA_RIO_2:
-            //     DibujarFilaRio(troncos_2);
-            // break;
-            // case FILA_RIO_4:
-            //     DibujarFilaRio(troncos_3);
-            // break;
+            case FILA_RIO_1:
+                DibujarFilaRio(troncos_1);
+            break;
+            case FILA_RIO_2:
+                DibujarFilaRio(troncos_2);
+            break;
+            case FILA_RIO_4:
+                DibujarFilaRio(troncos_3);
+            break;
 
         }
     }
