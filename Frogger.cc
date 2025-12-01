@@ -958,6 +958,21 @@ bool DetectarColisionJugador(Collider player_C, Collider object_C) {
          (player_C.P1.y+6 < object_C.P2.y);
 }
 
+// Comprueba si puede posarse sobre una tortuga
+void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        if((*jugador).ranaJugador.isJumping){
+            printf("OVER TURTLE\n");
+        }else{
+            if(tortugas[i].sprite.isActive){
+                printf("ON TURTLE\n");
+            }else{
+                MatarJugador(&(*jugador));
+            }
+        }
+    }
+}
+
 // Todos los vehiculos actuan de la misma forma contra la rana:
 // La rana es atropellada y muere en el acto, activando todos los 
 // eventos que deban ocurrir cuando esta fallece
@@ -971,7 +986,8 @@ void DetectarColisionJugadorFilaVehiculos(Jugador *jugador, Vehiculo vehiculos[]
 
 // Dado un sprite y una fila, devuelve verdadero si debería comprobar la fila pasada por parametro y sus adyacentes al estar el sprite ubicado en una de ellas
 bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
-    return(GetFilaPantallaSprite(sprite) >= fila-1 && GetFilaPantallaSprite(sprite) <= fila+1);
+    // return(GetFilaPantallaSprite(sprite) == fila);
+    return(GetFilaPantallaSprite(sprite) >= fila-0.9 && GetFilaPantallaSprite(sprite) <= fila+0.9);
 }
 
 // En función de donde se ubica la rana del jugador, comprueba las colisiones de la fila de la pantalla donde se encuentra y
@@ -991,19 +1007,21 @@ void ComprobarColisionesJugador(Jugador *jugador){
                     break;
                     // RIO
                     case 13:
-                        // printf("FILA_RIO_5\n");
-                    break;
-                    case 12:
                         // printf("FILA_RIO_4\n");
                     break;
-                    case 11:
+                    case 12:
                         // printf("FILA_RIO_3\n");
                     break;
-                    case 10:
+                    case 11:
                         // printf("FILA_RIO_2\n");
                     break;
-                    case 9:
+                    case 10:
                         // printf("FILA_RIO_1\n");
+                    break;
+                    case 9:
+                        printf("FILA_RIO_0\n");
+                        //Comprueba si el jugador está en la fila 8, que es la fila segura previa al rio
+                        DetectarColisionJugadorFilaTortugas(&(*jugador),tortugas_1);
                     break;
 
                     //CARRETERA
@@ -1192,6 +1210,7 @@ void ActualizarSaltoRana(Rana *rana){
         MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).animSalto.velocidad);
     }else{
         (*rana).isJumping = false;
+        (*rana).sprite.collider = (*rana).finSalto;
         (*rana).sprite.indiceAnimacion = 0;
         ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
     }
