@@ -784,7 +784,7 @@ void SpawnJugador(Jugador *jugador){
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
     (*jugador).ranaJugador.sprite.collider.P1 = {
-        VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*2)
+        VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*8)
     };
     (*jugador).ranaJugador.sprite.collider.P2 = {
         (*jugador).ranaJugador.sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
@@ -835,7 +835,7 @@ bool IsSaltoRanaPosible(Rana rana, bool isPlayer = true){
             rana.finSalto.P1.y >= ranaBaseSpriteSheet.spriteHeight*2 && rana.finSalto.P2.y <= VENTANA_Y-ranaBaseSpriteSheet.spriteHeight
         );
     }else{
-        // TO_DO
+        // TO_DO IA RANA
         return false;
     }
 }
@@ -844,20 +844,28 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
     // CALCULA LA POSICION FINAL DONDE DEBE ATERRIZAR
     switch((*rana).direccion){
         case ARRIBA:
-            (*rana).finSalto.P1.y -= (*rana).distanciaSalto;
-            (*rana).finSalto.P2.y -= (*rana).distanciaSalto;
+            (*rana).finSalto.P1.y = (*rana).sprite.collider.P1.y-(*rana).distanciaSalto;
+            (*rana).finSalto.P2.y = (*rana).sprite.collider.P2.y-(*rana).distanciaSalto;
+            (*rana).finSalto.P1.x = (*rana).sprite.collider.P1.x;
+            (*rana).finSalto.P2.x = (*rana).sprite.collider.P2.x;
         break;
         case DERECHA:
-            (*rana).finSalto.P1.x += (*rana).distanciaSalto;
-            (*rana).finSalto.P2.x += (*rana).distanciaSalto;
+            (*rana).finSalto.P1.x = (*rana).sprite.collider.P1.x+(*rana).distanciaSalto;
+            (*rana).finSalto.P2.x = (*rana).sprite.collider.P2.x+(*rana).distanciaSalto;
+            (*rana).finSalto.P1.y = (*rana).sprite.collider.P1.y;
+            (*rana).finSalto.P2.y = (*rana).sprite.collider.P2.y;
         break;
         case ABAJO:
-            (*rana).finSalto.P1.y += (*rana).distanciaSalto;
-            (*rana).finSalto.P2.y += (*rana).distanciaSalto;
+            (*rana).finSalto.P1.y = (*rana).sprite.collider.P1.y+(*rana).distanciaSalto;
+            (*rana).finSalto.P2.y = (*rana).sprite.collider.P2.y+(*rana).distanciaSalto;
+            (*rana).finSalto.P1.x = (*rana).sprite.collider.P1.x;
+            (*rana).finSalto.P2.x = (*rana).sprite.collider.P2.x;
         break;
         case IZQUIERDA:
-            (*rana).finSalto.P1.x -= (*rana).distanciaSalto;
-            (*rana).finSalto.P2.x -= (*rana).distanciaSalto;
+            (*rana).finSalto.P1.x = (*rana).sprite.collider.P1.x-(*rana).distanciaSalto;
+            (*rana).finSalto.P2.x = (*rana).sprite.collider.P2.x-(*rana).distanciaSalto;
+            (*rana).finSalto.P1.y = (*rana).sprite.collider.P1.y;
+            (*rana).finSalto.P2.y = (*rana).sprite.collider.P2.y;
         break;
     }
 
@@ -888,7 +896,7 @@ void DetectarControles(){
         // CONTROLES RANA_J1
         // El jugador podrá realizar acciones siempre que:
         //   - No esté saltando
-        if(!jugadores[0].ranaJugador.isJumping){
+        if(!jugadores[0].ranaJugador.isJumping && jugadores[0].ranaJugador.sprite.isActive){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
                 IniciarSaltoRana(&jugadores[0].ranaJugador, ARRIBA);
             }
@@ -930,6 +938,13 @@ void DetectarControles(){
     }
 }
 
+float GetFilaPantallaSprite(Sprite s){
+    return (VENTANA_Y-s.collider.P1.y)/ranaBaseSpriteSheet.spriteHeight;
+}
+float GetColumnaPantallaSprite(Sprite s){
+    return s.collider.P1.x/ranaBaseSpriteSheet.spriteWidth;
+}
+
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
 
 /** COLISIONES **/
@@ -941,35 +956,54 @@ bool DetectarColision(Collider C1, Collider C2) {
          (C1.P1.y <= C2.P2.y);
 }
 
-
-float GetFilaPantallaSprite(Sprite s){
-    return (VENTANA_Y-s.collider.P1.y)/ranaBaseSpriteSheet.spriteHeight;
-}
-float GetColumnaPantallaSprite(Sprite s){
-    return s.collider.P1.x/ranaBaseSpriteSheet.spriteWidth;
-}
-
 // Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision 
 // y comprueba si hay colisión entre ellos
-bool DetectarColisionJugador(Collider player_C, Collider object_C) {
-  return (player_C.P2.x-6 > object_C.P1.x) &&
-         (player_C.P1.x+6 < object_C.P2.x) &&
-         (player_C.P2.y-6 > object_C.P1.y) &&
-         (player_C.P1.y+6 < object_C.P2.y);
+bool DetectarColisionJugador(Jugador player, Collider object_C) {
+  return (player.ranaJugador.sprite.collider.P2.x-6 > object_C.P1.x) &&
+         (player.ranaJugador.sprite.collider.P1.x+6 < object_C.P2.x) &&
+         (player.ranaJugador.sprite.collider.P2.y-6 > object_C.P1.y) &&
+         (player.ranaJugador.sprite.collider.P1.y+6 < object_C.P2.y);
 }
 
 // Comprueba si puede posarse sobre una tortuga
 void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
+    bool isAgua = true;
+    int direccion = -1;
+    float velocidad = -1.0f;
+
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
-        if((*jugador).ranaJugador.isJumping){
-            printf("OVER TURTLE\n");
-        }else{
-            if(tortugas[i].sprite.isActive){
-                printf("ON TURTLE\n");
+        if(tortugas[i].sprite.isVisible && DetectarColisionJugador(*jugador,tortugas[i].sprite.collider)){
+            isAgua = false;
+            if((*jugador).ranaJugador.isJumping){
+                switch((*jugador).ranaJugador.direccion){
+                    case DERECHA:
+                        if(!tortugas[i+1].sprite.isActive && DetectarColisionJugador(*jugador, tortugas[i+1].sprite.collider)){
+                            // MatarJugador(&(*jugador));
+                        }
+                    break;
+                    case IZQUIERDA:
+                        if(!tortugas[i-1].sprite.isActive && DetectarColisionJugador(*jugador, tortugas[i-1].sprite.collider)){
+                            // MatarJugador(&(*jugador));
+                        }
+                    break;
+                }
             }else{
-                MatarJugador(&(*jugador));
+                if(tortugas[i].sprite.isActive){
+                    if(velocidad < 0){
+                        direccion = (int)tortugas[i].direccion;
+                        velocidad = tortugas[i].velocidadMovimiento;
+                    }
+                }else{
+                    MatarJugador(&(*jugador));
+                }
             }
         }
+    }
+
+    if(isAgua && !(*jugador).ranaJugador.isJumping){
+        MatarJugador(&(*jugador));
+    }else{
+        MoveCollider(&(*jugador).ranaJugador.sprite.collider, (Direccion) direccion, velocidad);
     }
 }
 
@@ -978,7 +1012,7 @@ void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
 // eventos que deban ocurrir cuando esta fallece
 void DetectarColisionJugadorFilaVehiculos(Jugador *jugador, Vehiculo vehiculos[], int totalVehiculos){
     for(int i = 0; i < totalVehiculos; i++){
-        if(DetectarColisionJugador((*jugador).ranaJugador.sprite.collider,vehiculos[i].sprite.collider)){
+        if(DetectarColisionJugador((*jugador),vehiculos[i].sprite.collider)){
             MatarJugador(&(*jugador));
         }
     }
@@ -1019,7 +1053,7 @@ void ComprobarColisionesJugador(Jugador *jugador){
                         // printf("FILA_RIO_1\n");
                     break;
                     case 9:
-                        printf("FILA_RIO_0\n");
+                        // printf("FILA_RIO_0\n");
                         //Comprueba si el jugador está en la fila 8, que es la fila segura previa al rio
                         DetectarColisionJugadorFilaTortugas(&(*jugador),tortugas_1);
                     break;
@@ -1115,6 +1149,7 @@ void ActualizarEstadoObstaculo(Tortuga *obstaculo){
         }
     }
     ActualizarSprite(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+
 }
 
 void ActualizarEstadoObstaculo(Troncodrilo *obstaculo){
