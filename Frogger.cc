@@ -22,9 +22,18 @@ enum Direccion {
     IZQUIERDA
 };
 
+enum FilaRio{
+    FILA_RIO_0,
+    FILA_RIO_1,
+    FILA_RIO_2,
+    FILA_RIO_3,
+    FILA_RIO_4,
+    FILA_RIO_T
+};
+
 // Facilita la selección del indiceAnimacion 
 // de los vehiculos para dibujar el vehiculo deaseado
-enum TipoVehiculo {
+enum TipoObjeto {
     COCHE_AMARILLO,
     TRACTOR,
     COCHE_ROSA,
@@ -65,29 +74,39 @@ struct Sprite{
     bool isVisible = true, isActive = true; //isActive indica si está dispuesto a comprobar colisiones
 };
 
+// Contiene información sobre el control de tiempo de una animación
+// duracion     -> La duración total de la animacion antes de reiniciarse/finalizar
+// velocidad    -> El tiempo que tarda en avanzar de frame. Se calcula dividiendo la duracion entre la cantidad de frames de la animacion 
+// temporizador -> Utilizado por la funcion HacerCadaX/HacerDuranteX. Contiene la información del reloj de sistema necesaria para realizar correctamente el contador. Importante igualar a last_time una única vez antes de usar el contador
+struct Animacion{
+    // La duración total de la animacion antes de reiniciarse/finalizar
+    float duracion; 
+    // El tiempo que tarda en avanzar de frame. Se calcula dividiendo la duracion entre la cantidad de frames de la animacion 
+    float velocidad; 
+    // Utilizado por la funcion HacerCadaX/HacerDuranteX. Contiene la información del reloj de sistema necesaria para realizar correctamente el contador. Importante igualar a last_time una única vez antes de usar el contador
+    float temporizador = 0;
+};
+
+
 struct Rana{
 	Direccion direccion;
 	Sprite sprite;
     bool isJumping = false;
-    // finSalto se encarga de conservar la coordenada final en la
-    // que debe aterrizar la rana asegurar su correcto movimiento
+    // Se encarga de conservar la coordenada final en la
+    // que debe aterrizar la rana para asegurar su correcto movimiento
     Collider finSalto;
     int distanciaSalto;
-    //Tiempos en milisegunos/ms
-    float duracionSalto, tempSalto, velocidadSalto;
-};
-struct AnimMuerteJugador{
-    float duracionMuerte, tempMuerte = 0, velocidadAnimacion;
+    Animacion animSalto;
 };
 
 struct Jugador{
     Rana ranaJugador;
     int puntuacion = 0, vidas = 0;
-    AnimMuerteJugador animMuerte;
+    Animacion animMuerte;
 };
 
 struct Vehiculo{
-    TipoVehiculo tipoVehiculo;
+    TipoObjeto tipoVehiculo;
     Direccion direccion;
 	Sprite sprite;
     float velocidadMovimiento;
@@ -99,7 +118,6 @@ struct Troncodrilo{
     float velocidadMovimiento;
     // Si no es un tronco, será un cocodrilo
     bool isTronco = true;
-    int longTronco = 3;
 };
 
 struct Tortuga{
@@ -107,7 +125,8 @@ struct Tortuga{
 	Sprite sprite;
     float velocidadMovimiento;
     // Indica si la tortuga tiene la posibilidad de hundirse o no
-    bool isSecure = true;
+    bool isSumergible = true, isSumergiendo = true;
+    Animacion animSumergir;
 };
 
 /* FIN STRUCTS */
@@ -115,20 +134,19 @@ struct Tortuga{
 /* GLOBALES */
 //-- Tamaños ventanas
 const int VENTANA_X = 672, VENTANA_Y = 768;
-
-//-- Fuentes
-const unsigned char ALTURA_FUENTE = 19;
+const int SPRITE_SIZE = 48;
+const int VENTANA_COLUMNAS = VENTANA_X/SPRITE_SIZE, VENTANA_FILAS = VENTANA_Y/SPRITE_SIZE;
 
 //-- FPS
 const unsigned char FPS=60;
-
-//-- Tiempos para FPS
 double current_time,last_time;
 
 //-- Prototipado
 bool areCollidersVisible = false;
 
 //-- UI
+const unsigned char FONT_SIZE = 24;
+
 Pantalla pantallaActual = INICIO;
 int nivelActual = 0;
 
@@ -155,10 +173,15 @@ int tortugaSpriteSheet_Coords[12];
 SpriteSheet troncoSpriteSheet;
 int troncoSpriteSheet_Coords[6];
 
+SpriteSheet zonaFinalSpriteSheet;
+int zonaFinalSpriteSheet_Coords[8];
+
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
 //  -No necesitan collider
 esat::SpriteHandle arbustoSprite;
+esat::SpriteHandle indicadorNivelSprite;
+esat::SpriteHandle vidaSprite;
 
 
 //-- Jugadores
@@ -173,10 +196,8 @@ const int maxCochesRosas = 5, maxTractores = 4;
 Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos[maxCochesAmarillos]; 
 Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
 
-const int filasRio = 5;
-const int maxTortugas_1 = 12, maxTroncos_1 = 9, maxTroncos_2 = 12;
-const int maxTortugas_2 = 10, maxTroncos_3 = 12;
-
+Tortuga tortugas_1[VENTANA_COLUMNAS], tortugas_2[VENTANA_COLUMNAS];
+Troncodrilo troncos_1[VENTANA_COLUMNAS], troncos_2[VENTANA_COLUMNAS], troncos_3[VENTANA_COLUMNAS];
 
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
@@ -342,10 +363,37 @@ void InicializarSpriteSheets(){
     );
 
     // Inicializa el SpriteSheet de las tortugas y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/TortugaSpriteSheet.png",
+        &tortugaSpriteSheet,
+        tortugaSpriteSheet_Coords,
+        1,
+        6
+    );
+
+    // Inicializa el SpriteSheet de los troncos y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/TroncoSpriteSheet.png",
+        &troncoSpriteSheet,
+        troncoSpriteSheet_Coords,
+        1,
+        3
+    );
+
+    // Inicializa el SpriteSheet de la zona final y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/ZonaFinalSpriteSheet.png",
+        &zonaFinalSpriteSheet,
+        zonaFinalSpriteSheet_Coords,
+        1,
+        4
+    );
 }
 
 void InicializarSprites(){
     arbustoSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/ArbustoSprite.png");
+    indicadorNivelSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/IndicadorNivelSprite.png");
+    vidaSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/VidaSprite.png");
 }
 
 //*** MANEJO DE SPRITES/SPRITESHEETS ***/
@@ -376,14 +424,10 @@ void ActualizarSprite(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite 
     }
 }
 
-// ** USAR SOLO CUANDO SE DESEA AVANZAR EL INDICE DE ANIMACIÓN Y ACTUALIZAR EL SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR **
-// Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen
-// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que 
-// tiene el Sprite, lo dibuja y libera la memoria de la imagen anterior.
-//
-// Después, avanza el indice de animación del sprite en +2 para que el siguiente Sprite que guarde sea el correspondiente
-// al siguiente en su animación. Si el indice es mayor o igual al total de coordenadas, lo reinicia a 0 para volver a
-// comenzar la animación
+// ** USAR SOLO CUANDO SE DESEA AVANZAR EL INDICE DE ANIMACIÓN NO PARA ACTUALIZAR EL SPRITE O DIBUJARLO DE FORMA REGULAR **
+// Dada una estructura SpriteSheet y una estructura Sprite.
+// Avanza el indice de animación del sprite en +2 para que el siguiente Sprite que guarde sea el correspondiente
+// al siguiente en su animación. Si el indice es mayor del total de coordenadas, lo reinicia 0 para volver a comenzar la animación
 void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite *sprite){
     // Avanza indice de animación. 
     (*sprite).indiceAnimacion += 2;
@@ -392,7 +436,19 @@ void AvanzarSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Spr
     if((*sprite).indiceAnimacion >= (*spriteSheet).coordsAnim){
         (*sprite).indiceAnimacion = 0;
     }
-    ActualizarSprite(&(*spriteSheet), spriteSheetCoords, &(*sprite));
+}
+
+// Dada una estructura SpriteSheet y una estructura Sprite.
+// Retrocede el indice de animación del sprite en -2 para que el siguiente Sprite que guarde sea el correspondiente
+// al anterior en su animación. Si el indice es menor de 0, lo reinicia al total de coordenadas para volver a comenzar la animación
+void RetrocederSpriteAnimado(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite *sprite){
+    // Avanza indice de animación. 
+    (*sprite).indiceAnimacion -= 2;
+    // Si despues de restar 2, el indice es menor de 0
+    // lo instancia a la ultima coordenada de animacion -1 para reiniciar la animacion a la inversa
+    if((*sprite).indiceAnimacion < 0){
+        (*sprite).indiceAnimacion = (*spriteSheet).coordsAnim-1;
+    }
 }
 
 void RellocateSprite(Sprite *sprite, PuntoCoord nuevaUbicacion){
@@ -448,6 +504,98 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
     }
 }
 
+//*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
+//TO_DO GESTION DE INFORMACIÓN EN BASE AL NIVEL
+
+// Inicializar valores de una fila de tortugas donde:
+// longitud  -> Indica el tamaño de cada grupo de tortugas
+// margen    -> Indica la cantidad de espaciado entre grupos de la fila (Tortugas Inactivas)
+// velocidad -> Indica la velocidad a la que se moveran las tortugas
+// filaRio   -> Indica la fila del rio en la que está para ubicarse en Y
+void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float velocidad, FilaRio filaRio){
+    // alternator indica cuando debe inicializar en base a la longitud o al margen (por defecto empieza por la longitud)
+    bool alternator = true;
+    int contador = 0;
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        tortugas[i].direccion = IZQUIERDA;
+        tortugas[i].velocidadMovimiento = velocidad;
+        tortugas[i].sprite.collider.P1 = {((float)i*tortugaSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-((float)filaRio*tortugaSpriteSheet.spriteHeight))};
+        tortugas[i].sprite.collider.P2 = {((float)(i+1)*tortugaSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-((float)filaRio*tortugaSpriteSheet.spriteHeight))};
+        tortugas[i].sprite.tipoAnimacion = 0;
+        tortugas[i].sprite.indiceAnimacion = 0;
+        tortugas[i].isSumergiendo = true;
+
+        tortugas[i].animSumergir.duracion = 1500;
+        tortugas[i].animSumergir.temporizador = 0;
+        tortugas[i].animSumergir.velocidad = tortugas[i].animSumergir.duracion/tortugaSpriteSheet.indicesAnim;
+
+        if(alternator && longitud > 0){
+            //Inicializar grupo
+            tortugas[i].sprite.isVisible = true;
+            tortugas[i].sprite.isActive = true;
+
+            // Hace que el primer grupo de tortugas sea sumergible
+            if(i < longitud){
+                tortugas[i].isSumergible = true;
+            }else{
+                tortugas[i].isSumergible = false;
+            }
+            ++contador %= longitud;
+            if(contador == 0){
+                alternator = !alternator;
+            }
+        }else{
+            //Inicializar "margen"
+            tortugas[i].sprite.isVisible = false;
+            tortugas[i].sprite.isActive = false;
+
+            ++contador %= margen;
+            if(contador == 0){
+                alternator = !alternator;
+            }
+        }
+        ActualizarSprite(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&tortugas[i].sprite);
+    }
+    printf("\n\n");
+}
+
+// Inicializar valores de una fila de troncodrilos donde:
+// longitud  -> Indica la longitud del tronco
+// margen    -> Indica la cantidad de espaciado entre grupos de la fila
+void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int margen, float velocidad, FilaRio filaRio){
+
+}
+
+// Instancia los valores de la fila correspondiente
+void InicializarFilaRio(FilaRio filaRio){
+    switch (filaRio){
+        case FILA_RIO_0:
+            InicializarFilaTortugas(tortugas_1, 3, 1, 1, filaRio);
+        break;
+        case FILA_RIO_3:
+            InicializarFilaTortugas(tortugas_2, 2, 2, 1, filaRio);
+        break;
+        case FILA_RIO_1:
+            InicializarFilaTroncodrilos(troncos_1, 3, 2, 2, filaRio);
+        break;
+        case FILA_RIO_2:
+            InicializarFilaTroncodrilos(troncos_2, 5, 2, 2, filaRio);
+        break;
+        case FILA_RIO_4:
+            InicializarFilaTroncodrilos(troncos_3, 4, 2, 2, filaRio);
+        break;
+
+    }
+}
+
+// Instancia los valores por defecto de los elementos de cada fila del rio al inicio de un nivel
+void InicializarRio(){
+    for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
+        InicializarFilaRio((FilaRio) i);
+    }
+}
+
+
 // Instancia los valores de un vehiculo
 // *vehiculo            -> Vehiculo a instanciar
 // tipo                 -> Indica que tipo de vehiculo
@@ -457,7 +605,7 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 // velocidadMovimiento  -> Velocidad a la que se moverá el vehiculo
 // margen               -> Indica el espacio adicional en X en funcion de la dirección
 void InicializarVehiculo(
-    Vehiculo *vehiculo, TipoVehiculo tipo, Direccion direccion,
+    Vehiculo *vehiculo, TipoObjeto tipo, Direccion direccion,
     int fila, float posicionX, 
     float velocidadMovimiento, 
     float margen
@@ -487,17 +635,6 @@ void InicializarVehiculo(
     (*vehiculo).sprite.indiceAnimacion = tipo*2;
 
     ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);  
-    if (tipo == CAMION_BACK){
-        printf("INICIALIZANDO CAMION_BACK\n");
-        printf("IMAGEN %p\n",(*vehiculo).sprite.imagen);
-        printf("tipoAnimacion %d\n",(*vehiculo).sprite.tipoAnimacion);
-        printf("indiceAnimacion %d\n",(*vehiculo).sprite.indiceAnimacion);
-    } 
-}
-
-//*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
-void InicializarRio(){
-    //TO_DO
 }
 
 // Instancia los valores por defecto de los vehiculos al inicio de un nivel
@@ -603,9 +740,9 @@ void SpawnJugador(Jugador *jugador){
     (*jugador).ranaJugador.isJumping = false;
     (*jugador).ranaJugador.finSalto = (*jugador).ranaJugador.sprite.collider; 
     (*jugador).ranaJugador.distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
-    (*jugador).ranaJugador.duracionSalto = 100;
-    (*jugador).ranaJugador.velocidadSalto = ((*jugador).ranaJugador.distanciaSalto/((*jugador).ranaJugador.duracionSalto/(1000.0f/FPS)));
-    (*jugador).ranaJugador.tempSalto = 0;
+    (*jugador).ranaJugador.animSalto.duracion = 100;
+    (*jugador).ranaJugador.animSalto.velocidad = ((*jugador).ranaJugador.distanciaSalto/((*jugador).ranaJugador.animSalto.duracion/(1000.0f/FPS)));
+    (*jugador).ranaJugador.animSalto.temporizador = 0;
     ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
@@ -618,10 +755,9 @@ void InicializarJugadores(){
         jugadores[i].puntuacion = false;
         jugadores[i].vidas = 3;
 
-        jugadores[i].animMuerte.duracionMuerte = 2000;
-        jugadores[i].animMuerte.tempMuerte = 0;
-        // La velocidad de animación es cada cuanto debe de avanzar el frame de animacion para completarla en duracionMuerte
-        jugadores[i].animMuerte.velocidadAnimacion = jugadores[i].animMuerte.duracionMuerte/animMuerteSpriteSheet.indicesAnim;
+        jugadores[i].animMuerte.duracion = 2000;
+        jugadores[i].animMuerte.temporizador = 0;
+        jugadores[i].animMuerte.velocidad = jugadores[i].animMuerte.duracion/animMuerteSpriteSheet.indicesAnim;
 
         //Spawn Rana en posición inicial del jugador
         SpawnJugador(&jugadores[i]);
@@ -676,9 +812,10 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
     // no saltará
     if(IsSaltoRanaPosible(*rana)){
         (*rana).isJumping = true;
-        (*rana).tempSalto = last_time;
+        (*rana).animSalto.temporizador = last_time;
         (*rana).sprite.tipoAnimacion = newDireccion;
         AvanzarSpriteAnimado(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+        ActualizarSprite(&ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
     }else{
         (*rana).finSalto = (*rana).sprite.collider;
     }
@@ -688,7 +825,7 @@ void MatarJugador(Jugador *jugador){
     (*jugador).ranaJugador.sprite.isActive = false;
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
-    (*jugador).animMuerte.tempMuerte = last_time;
+    (*jugador).animMuerte.temporizador = last_time;
     ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
@@ -742,6 +879,7 @@ void DetectarControles(){
 
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
 
+/** COLISIONES **/
 // Dados 2 collider, comprueba si hay colisión entre ellos
 bool DetectarColision(Collider C1, Collider C2) {
   return (C1.P2.x >= C2.P1.x) &&
@@ -844,31 +982,130 @@ void ComprobarColisionesJugador(Jugador *jugador){
 
 }
 
-void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
-    if(ComprobarSalidaVentanaSprite(&(*vehiculo).sprite,(*vehiculo).direccion)){
-        RellocateSpriteOnBorderEscape(&(*vehiculo).sprite, (*vehiculo).direccion);
+/** ESTADOS **/
+
+// Cambia los valores de posicion de un obstaculo en función de los parametros indicados
+// Pensado para el movimiento de obstaculos en movimiento como los vehiculos o los troncos
+void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float velocidad){
+    if (ComprobarSalidaVentanaSprite(&(*sprite), direccion)){
+        RellocateSpriteOnBorderEscape(&(*sprite), direccion);
     }else{
-        MoveCollider(&(*vehiculo).sprite.collider,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
+        MoveCollider(&(*sprite).collider, direccion, velocidad);
     }
-    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
+}
+
+//Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
+void ComprobarSumersionTortuga(Tortuga *tortuga){
+    int preSumersionCoord = (tortugaSpriteSheet.coordsAnim/2)-2;
+    int postSumersionCoord = tortugaSpriteSheet.coordsAnim/2;
+    int ultimaCoord = tortugaSpriteSheet.coordsAnim-2;
+
+    // Si está en indice 0, cambia el sentido de la animacion y no comprueba nada mas
+    if((*tortuga).sprite.indiceAnimacion == 0){
+        (*tortuga).isSumergiendo = true;
+    }else {
+        // Si está en el frame previo a hundirse...
+        if((*tortuga).sprite.indiceAnimacion == preSumersionCoord){
+            // Si la tortuga no se puede hundir, entonces simplemente cambia el sentido de  la animacion
+            if(!(*tortuga).isSumergible){
+                    (*tortuga).isSumergiendo = false;
+            }else {
+            // Si es una tortuga de las que pueden hundirse y está saliendo del agua, entonces activamos la colision para que sea tangible
+                if(!(*tortuga).isSumergiendo){
+                    (*tortuga).sprite.isActive = true;
+                }
+            }
+        }else {
+            //Si está en el frame justo despúes de hundirse y se está sumergiendo, desactivamos su tangibilidad
+            if((*tortuga).isSumergiendo && (*tortuga).sprite.indiceAnimacion == postSumersionCoord){
+                (*tortuga).sprite.isActive = false;
+            }else{
+                //Por último, si está en el último indice de animación. Cambia el sentido de la animacion para que vuelva a emerger
+                if((*tortuga).sprite.indiceAnimacion == ultimaCoord){
+                    (*tortuga).isSumergiendo = false;
+                }
+            }
+        }
+    }
+}
+
+// Actualiza el estado de un obstaculo (En funcion del tipo de obstaculo puede variar el comportamiento)
+void ActualizarEstadoObstaculo(Tortuga *obstaculo){
+    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
+    
+    //Animacion de la tortuga
+    if(HacerCadaX(&(*obstaculo).animSumergir.temporizador,(*obstaculo).animSumergir.velocidad) && (*obstaculo).sprite.isVisible){
+        ComprobarSumersionTortuga(&(*obstaculo));
+        //En funcion de si la tortuga se está sumergiendo o no, entonces avanza o retrocede el frame de animacion
+        if((*obstaculo).isSumergiendo){
+            AvanzarSpriteAnimado(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+        }else{
+            RetrocederSpriteAnimado(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+        }
+    }
+    ActualizarSprite(&tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+}
+
+void ActualizarEstadoObstaculo(Troncodrilo *obstaculo){
+    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
+    ActualizarSprite(&troncoSpriteSheet,troncoSpriteSheet_Coords,&(*obstaculo).sprite);
+}
+void ActualizarEstadoObstaculo(Vehiculo *obstaculo){
+    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
+    ActualizarSprite(&vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*obstaculo).sprite);
+}
+
+//Recorre todos los obstaculos de la fila de un rio y actualiza sus estados (En funcion del tipo de obstaculo puede variar el comportamiento)
+void ActualizarEstadoFilaRio(Tortuga array[]){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        ActualizarEstadoObstaculo(&array[i]);
+    }
+}
+void ActualizarEstadoFilaRio(Troncodrilo array[]){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        ActualizarEstadoObstaculo(&array[i]);
+    }
+}
+
+void ActualizarEstadoRio(){
+    for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
+        switch ((FilaRio) i){
+            case FILA_RIO_0:
+                ActualizarEstadoFilaRio(tortugas_1);
+            break;
+            case FILA_RIO_3:
+                ActualizarEstadoFilaRio(tortugas_2);
+            break;
+            // case FILA_RIO_1:
+            //     DibujarFilaRio(troncos_1);
+            // break;
+            // case FILA_RIO_2:
+            //     DibujarFilaRio(troncos_2);
+            // break;
+            // case FILA_RIO_4:
+            //     DibujarFilaRio(troncos_3);
+            // break;
+
+        }
+    }
 }
 
 void ActualizarEstadoVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
-            ActualizarEstadoVehiculo(&cochesAmarillos[i]);
+            ActualizarEstadoObstaculo(&cochesAmarillos[i]);
         }
 
         if(i < maxTractores){
-            ActualizarEstadoVehiculo(&tractores[i]);
+            ActualizarEstadoObstaculo(&tractores[i]);
         }
 
         if(i < maxCochesRosas){
-            ActualizarEstadoVehiculo(&cochesRosas[i]);
+            ActualizarEstadoObstaculo(&cochesRosas[i]);
         }
         
         if(i < maxCochesBlancos){
-            ActualizarEstadoVehiculo(&cochesBlancos[i]);
+            ActualizarEstadoObstaculo(&cochesBlancos[i]);
         }
 
         // Actualiza el estado de los camiones
@@ -886,19 +1123,20 @@ void ActualizarEstadoVehiculos(){
 
 //Actualización del estado de la animacion de muerte del jugador 
 void ActualizarMuerteRanaJugador(Jugador *jugador){
-    if(HacerCadaX(&(*jugador).animMuerte.tempMuerte, (*jugador).animMuerte.velocidadAnimacion)){
+    if(HacerCadaX(&(*jugador).animMuerte.temporizador, (*jugador).animMuerte.velocidad)){
         if((*jugador).ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
             SpawnJugador(&(*jugador));
         }else{
             AvanzarSpriteAnimado(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
+            ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
         }
     }
 }
 
 void ActualizarSaltoRana(Rana *rana){
     // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-    if(HacerDuranteX(&(*rana).tempSalto,(*rana).duracionSalto) && !ComprobarPosicionFinal((*rana).sprite.collider, (*rana).finSalto)){
-        MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).velocidadSalto);
+    if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion) && !ComprobarPosicionFinal((*rana).sprite.collider, (*rana).finSalto)){
+        MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).animSalto.velocidad);
     }else{
         (*rana).isJumping = false;
         (*rana).sprite.indiceAnimacion = 0;
@@ -926,6 +1164,7 @@ void ActualizarEstadoJugadores(){
 
 void ActualizarEstadoJuego(){
     //TO_DO
+    ActualizarEstadoRio();
     ActualizarEstadoVehiculos();
     ActualizarEstadoJugadores();
 }
@@ -961,12 +1200,17 @@ void DrawCollider(Collider collider){
         collider.P1.x,
         collider.P1.y,
     };
-    esat::DrawSetStrokeColor(0,255,0);
     esat::DrawPath(coords,5);
 }
 
-void DrawSprite(Sprite sprite, float x, float y, bool isPlayer = false){
-    if(areCollidersVisible && sprite.isActive){
+void DrawSprite(Sprite sprite, bool isPlayer = false){
+    if(areCollidersVisible){
+        if(sprite.isActive){
+            esat::DrawSetStrokeColor(0,255,0);
+        }else{
+            esat::DrawSetStrokeColor(255,0,0);
+        }
+
         if(isPlayer){
             DrawCollider({
                     {sprite.collider.P1.x+6, sprite.collider.P1.y+6},
@@ -979,7 +1223,7 @@ void DrawSprite(Sprite sprite, float x, float y, bool isPlayer = false){
     }
 
     if(sprite.isVisible){
-        esat::DrawSprite(sprite.imagen, x, y);
+        esat::DrawSprite(sprite.imagen, sprite.collider.P1.x, sprite.collider.P1.y);
     }
 }
 
@@ -1007,38 +1251,88 @@ void DibujarArbustos(){
     }
 }
 
+// Dibujar la fila del rio pasada por parametro
+void DibujarFilaRio(Tortuga array[]){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        DrawSprite(array[i].sprite);
+    }
+}
+
+// Dibujar la fila del rio pasada por parametro
+void DibujarFilaRio(Troncodrilo array[]){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        DrawSprite(array[i].sprite);
+    }
+}
+
+void DibujarRio(){
+    for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
+        switch ((FilaRio) i){
+            case FILA_RIO_0:
+                DibujarFilaRio(tortugas_1);
+            break;
+            case FILA_RIO_3:
+                DibujarFilaRio(tortugas_2);
+            break;
+            // case FILA_RIO_1:
+            //     DibujarFilaRio(troncos_1);
+            // break;
+            // case FILA_RIO_2:
+            //     DibujarFilaRio(troncos_2);
+            // break;
+            // case FILA_RIO_4:
+            //     DibujarFilaRio(troncos_3);
+            // break;
+
+        }
+    }
+}
+
 void DibujarVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
-            DrawSprite(cochesAmarillos[i].sprite, cochesAmarillos[i].sprite.collider.P1.x, cochesAmarillos[i].sprite.collider.P1.y);
+            DrawSprite(cochesAmarillos[i].sprite);
         }
 
         if(i < maxTractores){
-            DrawSprite(tractores[i].sprite, tractores[i].sprite.collider.P1.x, tractores[i].sprite.collider.P1.y);
+            DrawSprite(tractores[i].sprite);
         }
 
         if(i < maxCochesRosas){
-            DrawSprite(cochesRosas[i].sprite, cochesRosas[i].sprite.collider.P1.x, cochesRosas[i].sprite.collider.P1.y);
+            DrawSprite(cochesRosas[i].sprite);
         }
         
         if(i < maxCochesBlancos){
-            DrawSprite(cochesBlancos[i].sprite, cochesBlancos[i].sprite.collider.P1.x, cochesBlancos[i].sprite.collider.P1.y);
+            DrawSprite(cochesBlancos[i].sprite);
         }
 
-        DrawSprite(camiones[i].sprite, camiones[i].sprite.collider.P1.x, camiones[i].sprite.collider.P1.y);
+        DrawSprite(camiones[i].sprite);
     }
 }
 
 void DibujarJugadores(){
     for(int i = 0; i < jugadoresActuales; i++){
-        DrawSprite(jugadores[i].ranaJugador.sprite, jugadores[i].ranaJugador.sprite.collider.P1.x, jugadores[i].ranaJugador.sprite.collider.P1.y, true);
+        DrawSprite(jugadores[i].ranaJugador.sprite, true);
     }
 }
 
 void DibujarJuego(){
     DibujarArbustos();
+    DibujarRio();
     DibujarVehiculos();
     DibujarJugadores();
+}
+
+void DibujarPie(){
+    switch (pantallaActual){
+        case JUEGO:
+            esat::DrawSetFillColor(255,255,0);
+            esat::DrawText(VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2,"TIME");
+            esat::DrawSetFillColor(255,255,255);
+        break;
+        default:
+        break;
+    }
 }
 
 // Es la única función que se debe llamar en el main. 
@@ -1064,7 +1358,7 @@ void DibujarEntorno(){
     // de todo como la UI que es
     //TO_DO
     // DibujarCabecera()
-    // DibujarPie();
+    DibujarPie();
 } 
 
 //*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
@@ -1075,10 +1369,35 @@ void LiberarSpriteSheets(){
     esat::SpriteRelease(ranaRosaSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaRojaSpriteSheet.spriteSheet);
     esat::SpriteRelease(vehiculosSpriteSheet.spriteSheet);
+    esat::SpriteRelease(tortugaSpriteSheet.spriteSheet);
+    esat::SpriteRelease(troncoSpriteSheet.spriteSheet);
+    esat::SpriteRelease(zonaFinalSpriteSheet.spriteSheet);
 }
 
 void LiberarSpritesBase(){
     esat::SpriteRelease(arbustoSprite);
+    esat::SpriteRelease(indicadorNivelSprite);
+    esat::SpriteRelease(vidaSprite);
+}
+
+void LiberarSpritesRio(){
+    for(int i = 0; i < VENTANA_COLUMNAS; i++){
+        if(tortugas_1[i].sprite.imagen != NULL){
+            esat::SpriteRelease(tortugas_1[i].sprite.imagen);
+        }
+        if(tortugas_2[i].sprite.imagen != NULL){
+            esat::SpriteRelease(tortugas_2[i].sprite.imagen);
+        }
+        if(troncos_1[i].sprite.imagen != NULL){
+            esat::SpriteRelease(troncos_1[i].sprite.imagen);
+        }
+        if(troncos_2[i].sprite.imagen != NULL){
+            esat::SpriteRelease(troncos_2[i].sprite.imagen);
+        }
+        if(troncos_3[i].sprite.imagen != NULL){
+            esat::SpriteRelease(troncos_3[i].sprite.imagen);
+        }
+    }
 }
 
 void LiberarSpritesVehiculos(){
@@ -1119,6 +1438,7 @@ void LiberarSpritesJugadores(){
 
 //Libera de memoria todos los spriteHandle inicializados
 void LiberarSprites(){
+    LiberarSpritesRio();
     LiberarSpritesVehiculos();
     LiberarSpritesJugadores();
     LiberarSpritesBase();
@@ -1133,11 +1453,13 @@ int esat::main(int argc, char **argv) {
     esat::WindowInit(VENTANA_X,VENTANA_Y);
     WindowSetMouseVisibility(true);
 
+    esat::DrawSetTextFont("./Recursos/Fuentes/arcade-legacy.ttf");
+    esat::DrawSetTextSize(FONT_SIZE);
+
     // Inicialización de todos aquellos recursos que necesitan ser precargados para
     // que otros los puedan usar
     InicializarSpriteSheets();
     InicializarSprites();
-
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
         last_time = esat::Time(); 
