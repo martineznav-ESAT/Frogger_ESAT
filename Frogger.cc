@@ -206,6 +206,9 @@ Troncodrilo troncos_1[VENTANA_COLUMNAS], troncos_2[VENTANA_COLUMNAS], troncos_3[
 const int maxZonasFinales = 28;
 Sprite zonasFinales[maxZonasFinales];
 
+const int maxRanasFinales = 5;
+Sprite ranasFinales[maxRanasFinales];
+
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
 
@@ -527,34 +530,50 @@ bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
     return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
 }
 
-void InicializarZonasFinales(Sprite metas[], FilaRio filaRio){
+// Inicializar valores de las ranas que aparecen al llegar a una zona final donde:
+// filaRio      -> Indica la fila del rio en la que se debe ubicar en Y
+void InicializarRanasFinales(FilaRio filaRio){
+    for(int i = 0; i < maxRanasFinales; i++){
+        ranasFinales[i].collider.P1 = {((float)i*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio)*SPRITE_SIZE))};
+        ranasFinales[i].tipoAnimacion = 0;
+        ranasFinales[i].indiceAnimacion = 0;
+        ranasFinales[i].isVisible = true;
+        ranasFinales[i].isActive = true;
+
+        ActualizarSprite(&ranaFinSpriteSheet, ranaFinSpriteSheet_Coords, &ranasFinales[i]);
+    }
+}
+
+// Inicializar valores de las zonas finales donde:
+// filaRio   -> Indica la fila del rio en la que está para ubicarse en Y
+void InicializarZonasFinales(FilaRio filaRio){
     int contador = 0;
     for(int i = 0; i < maxZonasFinales; i++){
-        metas[i].collider.P1 = {((float)i*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio+0.5f)*SPRITE_SIZE))};
-        metas[i].collider.P2 = {((float)(i+1)*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-(((float)filaRio)*SPRITE_SIZE))};
-        metas[i].tipoAnimacion = 0;
-        metas[i].isVisible = true;
+        zonasFinales[i].collider.P1 = {((float)i*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio+0.5f)*SPRITE_SIZE))}; // se ajusta 0.5f en la fila para coincidir adecuadamente al no medir el sprite 48px de alto
+        zonasFinales[i].collider.P2 = {((float)(i+1)*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-(((float)filaRio)*SPRITE_SIZE))};
+        zonasFinales[i].tipoAnimacion = 0;
+        zonasFinales[i].isVisible = true;
         switch (contador){
         case 0:
-            metas[i].indiceAnimacion = 0;
-            metas[i].isActive = true;
+            zonasFinales[i].indiceAnimacion = 0;
+            zonasFinales[i].isActive = true;
             break;
         case 1:
         case 2:
-            metas[i].indiceAnimacion = 2;
-            metas[i].isActive = false;
+            zonasFinales[i].indiceAnimacion = 2;
+            zonasFinales[i].isActive = false;
             break;
         case 3:
-            metas[i].indiceAnimacion = 4;
-            metas[i].isActive = true;
+            zonasFinales[i].indiceAnimacion = 4;
+            zonasFinales[i].isActive = true;
             break;
         case 4:
         case 5:
-            metas[i].indiceAnimacion = 6;
-            metas[i].isActive = true;
+            zonasFinales[i].indiceAnimacion = 6;
+            zonasFinales[i].isActive = true;
             break;
         }
-        ActualizarSprite(&zonaFinalSpriteSheet, zonaFinalSpriteSheet_Coords, &metas[i]);
+        ActualizarSprite(&zonaFinalSpriteSheet, zonaFinalSpriteSheet_Coords, &zonasFinales[i]);
 
         ++contador %= 6;
     }
@@ -666,7 +685,8 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
 void InicializarFilaRio(FilaRio filaRio){
     switch (filaRio){
         case FILA_RIO_5:
-            InicializarZonasFinales(zonasFinales, filaRio);
+            InicializarZonasFinales(filaRio);
+            InicializarRanasFinales(filaRio);
         break;
         case FILA_RIO_4:
             InicializarFilaTroncodrilos(troncos_3, 4, 2, 2, filaRio);
@@ -1461,24 +1481,16 @@ void DibujarFilaRio(Troncodrilo array[]){
         DrawSprite(array[i].sprite);
     }
 }
-// Dibujar la fila del rio pasada por parametro
-void DibujarZonasFinales(Sprite array[]){
+// Dibujar las zonas finales donde deben acabar las ranas del jugador para puntuar
+void DibujarZonasFinales(){
     for(int i = 0; i < maxZonasFinales; i++){
-        DrawSprite(array[i]);
-
-        
+        DrawSprite(zonasFinales[i]);
     }
+}
 
-    for(int i = 0, rect_I = 1; i < 5; i++){
-        DrawRect(
-            {
-                {array[rect_I].collider.P1.x,array[rect_I].collider.P1.y+SPRITE_SIZE/2},
-                {array[rect_I+1].collider.P2.x,array[rect_I+1].collider.P2.y+2}
-            },
-            //RGB
-            0,255,0
-        );
-        rect_I+=6;
+void DibujarRanasFinales(){
+    for(int i = 0; i < maxRanasFinales; i++){
+        DrawSprite(ranasFinales[i]);
     }
 }
 
@@ -1501,7 +1513,7 @@ void DibujarRio(){
                 DibujarFilaRio(troncos_3);
             break;
             case FILA_RIO_5:
-                DibujarZonasFinales(zonasFinales);
+                DibujarZonasFinales();
             break;
         }
     }
