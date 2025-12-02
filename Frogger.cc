@@ -28,6 +28,7 @@ enum FilaRio{
     FILA_RIO_2,
     FILA_RIO_3,
     FILA_RIO_4,
+    FILA_RIO_5,
     FILA_RIO_T
 };
 
@@ -176,6 +177,9 @@ int troncoSpriteSheet_Coords[6];
 SpriteSheet zonaFinalSpriteSheet;
 int zonaFinalSpriteSheet_Coords[8];
 
+SpriteSheet ranaFinSpriteSheet;
+int ranaFinSpriteSheet_Coords[4];
+
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
 //  -No necesitan collider
@@ -198,6 +202,9 @@ Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
 
 Tortuga tortugas_1[VENTANA_COLUMNAS], tortugas_2[VENTANA_COLUMNAS];
 Troncodrilo troncos_1[VENTANA_COLUMNAS], troncos_2[VENTANA_COLUMNAS], troncos_3[VENTANA_COLUMNAS];
+
+const int maxZonasFinales = 28;
+Sprite zonasFinales[maxZonasFinales];
 
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
@@ -388,6 +395,15 @@ void InicializarSpriteSheets(){
         1,
         4
     );
+
+    // Inicializa el SpriteSheet de la rana que aparece al llegar a una zona final y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/RanaFinSpriteSheet.png",
+        &ranaFinSpriteSheet,
+        ranaFinSpriteSheet_Coords,
+        1,
+        2
+    );
 }
 
 void InicializarSprites(){
@@ -511,6 +527,39 @@ bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
     return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
 }
 
+void InicializarZonasFinales(Sprite metas[], FilaRio filaRio){
+    int contador = 0;
+    for(int i = 0; i < maxZonasFinales; i++){
+        metas[i].collider.P1 = {((float)i*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio+0.5f)*SPRITE_SIZE))};
+        metas[i].collider.P2 = {((float)(i+1)*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-(((float)filaRio)*SPRITE_SIZE))};
+        metas[i].tipoAnimacion = 0;
+        metas[i].isVisible = true;
+        switch (contador){
+        case 0:
+            metas[i].indiceAnimacion = 0;
+            metas[i].isActive = true;
+            break;
+        case 1:
+        case 2:
+            metas[i].indiceAnimacion = 2;
+            metas[i].isActive = false;
+            break;
+        case 3:
+            metas[i].indiceAnimacion = 4;
+            metas[i].isActive = true;
+            break;
+        case 4:
+        case 5:
+            metas[i].indiceAnimacion = 6;
+            metas[i].isActive = true;
+            break;
+        }
+        ActualizarSprite(&zonaFinalSpriteSheet, zonaFinalSpriteSheet_Coords, &metas[i]);
+
+        ++contador %= 6;
+    }
+}
+
 // Inicializar valores de una fila de tortugas donde:
 // longitud  -> Indica el tamaño de cada grupo de tortugas
 // margen    -> Indica la cantidad de espaciado entre grupos de la fila (Tortugas Inactivas)
@@ -562,10 +611,10 @@ void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float
     }
 }
 
-// Inicializar valores de una fila de tortugas donde:
+// Inicializar valores de una fila de troncodrilos donde:
 // longitud  -> Indica el tamaño del tronco
 // margen    -> Indica la cantidad de espaciado entre troncos
-// velocidad -> Indica la velocidad a la que se moveran las tortugas
+// velocidad -> Indica la velocidad a la que se moveran los troncodrilos
 // filaRio   -> Indica la fila del rio en la que está para ubicarse en Y
 void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int margen, float velocidad, FilaRio filaRio){
     // alternator indica cuando debe inicializar en base a la longitud o al margen (por defecto empieza por la longitud)
@@ -579,12 +628,6 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
         troncodrilos[i].sprite.collider.P2 = {((float)(i+1)*troncoSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-((float)filaRio*troncoSpriteSheet.spriteHeight))};
         troncodrilos[i].sprite.tipoAnimacion = 0;
 
-        printf("i+longitud %d\n",i+longitud);
-        printf("VENTANA_COLUMNAS %d\n",VENTANA_COLUMNAS);
-        if(i+longitud < VENTANA_COLUMNAS){
-            printf("PASS\n");
-        }
-        printf("\n\n");
         if(alternator && longitud > 0 && CabeGrupoObstaculos(contador,i,longitud)){
             //Inicializar grupo
             troncodrilos[i].sprite.isVisible = true;
@@ -622,22 +665,24 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
 // Instancia los valores de la fila correspondiente
 void InicializarFilaRio(FilaRio filaRio){
     switch (filaRio){
-        case FILA_RIO_0:
-            InicializarFilaTortugas(tortugas_1, 3, 1, 1, filaRio);
-        break;
-        case FILA_RIO_3:
-            InicializarFilaTortugas(tortugas_2, 2, 2, 1, filaRio);
-        break;
-        case FILA_RIO_1:
-            InicializarFilaTroncodrilos(troncos_1, 3, 2, 2, filaRio);
-        break;
-        case FILA_RIO_2:
-            InicializarFilaTroncodrilos(troncos_2, 5, 2, 2, filaRio);
+        case FILA_RIO_5:
+            InicializarZonasFinales(zonasFinales, filaRio);
         break;
         case FILA_RIO_4:
             InicializarFilaTroncodrilos(troncos_3, 4, 2, 2, filaRio);
         break;
-
+        case FILA_RIO_3:
+            InicializarFilaTortugas(tortugas_2, 2, 2, 1, filaRio);
+        break;
+        case FILA_RIO_2:
+            InicializarFilaTroncodrilos(troncos_2, 5, 2, 2, filaRio);
+        break;
+        case FILA_RIO_1:
+            InicializarFilaTroncodrilos(troncos_1, 3, 2, 2, filaRio);
+        break;
+        case FILA_RIO_0:
+            InicializarFilaTortugas(tortugas_1, 3, 1, 1, filaRio);
+        break;
     }
 }
 
@@ -965,45 +1010,63 @@ bool DetectarColisionJugador(Jugador player, Collider object_C) {
          (player.ranaJugador.sprite.collider.P1.y+6 < object_C.P2.y);
 }
 
-// Comprueba si puede posarse sobre una tortuga
-void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
-    bool isAgua = true;
-    int direccion = -1;
-    float velocidad = -1.0f;
+// Comprueba si puede posarse sobre un troncodrilo
+void DetectarColisionJugadorFilaTroncodrilos(Jugador *jugador, Troncodrilo troncodrilos[]){
+    int indiceActual = 0;
 
-    for(int i = 0; i < VENTANA_COLUMNAS; i++){
-        if(tortugas[i].sprite.isVisible && DetectarColisionJugador(*jugador,tortugas[i].sprite.collider)){
-            isAgua = false;
-            if((*jugador).ranaJugador.isJumping){
-                switch((*jugador).ranaJugador.direccion){
-                    case DERECHA:
-                        if(!tortugas[i+1].sprite.isActive && DetectarColisionJugador(*jugador, tortugas[i+1].sprite.collider)){
-                            // MatarJugador(&(*jugador));
-                        }
-                    break;
-                    case IZQUIERDA:
-                        if(!tortugas[i-1].sprite.isActive && DetectarColisionJugador(*jugador, tortugas[i-1].sprite.collider)){
-                            // MatarJugador(&(*jugador));
-                        }
-                    break;
-                }
-            }else{
-                if(tortugas[i].sprite.isActive){
-                    if(velocidad < 0){
-                        direccion = (int)tortugas[i].direccion;
-                        velocidad = tortugas[i].velocidadMovimiento;
-                    }
-                }else{
-                    MatarJugador(&(*jugador));
-                }
-            }
+    while(!DetectarColisionJugador(*jugador,troncodrilos[indiceActual].sprite.collider)){
+        indiceActual++;
+    };
+
+    if((*jugador).ranaJugador.isJumping){
+        switch((*jugador).ranaJugador.direccion){
+            case DERECHA:
+                
+            break;
+            case IZQUIERDA:
+
+            break;
+        }
+    }else{
+        if(troncodrilos[indiceActual].sprite.isActive){
+            MoveCollider(
+                &(*jugador).ranaJugador.sprite.collider, 
+                (Direccion) troncodrilos[indiceActual].direccion, 
+                troncodrilos[indiceActual].velocidadMovimiento
+            );
+        }else{
+            MatarJugador(&(*jugador));
         }
     }
+}
 
-    if(isAgua && !(*jugador).ranaJugador.isJumping){
-        MatarJugador(&(*jugador));
+// Comprueba si puede posarse sobre una tortuga
+void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
+    int indiceActual = 0;
+
+    while(!DetectarColisionJugador(*jugador,tortugas[indiceActual].sprite.collider)){
+        indiceActual++;
+    };
+
+    if((*jugador).ranaJugador.isJumping){
+        switch((*jugador).ranaJugador.direccion){
+            case DERECHA:
+                
+            break;
+            case IZQUIERDA:
+
+            break;
+        }
     }else{
-        MoveCollider(&(*jugador).ranaJugador.sprite.collider, (Direccion) direccion, velocidad);
+        if(tortugas[indiceActual].sprite.isActive){
+            MoveCollider(
+                &(*jugador).ranaJugador.sprite.collider, 
+                (Direccion) tortugas[indiceActual].direccion, 
+                tortugas[indiceActual].velocidadMovimiento
+            );
+        }else{
+            MatarJugador(&(*jugador));
+        }
     }
 }
 
@@ -1030,6 +1093,10 @@ bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
 void ComprobarColisionesJugador(Jugador *jugador){
     //Recorre las filas con posibles interacciones con el jugador si está activo
     if((*jugador).ranaJugador.sprite.isActive){
+        if((*jugador).ranaJugador.sprite.collider.P1.x < 0 || (*jugador).ranaJugador.sprite.collider.P2.x > VENTANA_X){
+            MatarJugador(&(*jugador));
+        }
+
         for(int filaComprobar = 3; filaComprobar < VENTANA_Y/ranaBaseSpriteSheet.spriteHeight - 1; filaComprobar++){
             if(ComprobarFilaActualYAdyacentes((*jugador).ranaJugador.sprite,filaComprobar)){
                 // Si es una fila que en la que se encuentra el jugador o es adyacente, comprueba las colisiones 
@@ -1042,19 +1109,22 @@ void ComprobarColisionesJugador(Jugador *jugador){
                     // RIO
                     case 13:
                         // printf("FILA_RIO_4\n");
+                        DetectarColisionJugadorFilaTroncodrilos(&(*jugador),troncos_3);
                     break;
                     case 12:
                         // printf("FILA_RIO_3\n");
+                        DetectarColisionJugadorFilaTortugas(&(*jugador),tortugas_2);
                     break;
                     case 11:
                         // printf("FILA_RIO_2\n");
+                        DetectarColisionJugadorFilaTroncodrilos(&(*jugador),troncos_2);
                     break;
                     case 10:
                         // printf("FILA_RIO_1\n");
+                        DetectarColisionJugadorFilaTroncodrilos(&(*jugador),troncos_1);
                     break;
                     case 9:
                         // printf("FILA_RIO_0\n");
-                        //Comprueba si el jugador está en la fila 8, que es la fila segura previa al rio
                         DetectarColisionJugadorFilaTortugas(&(*jugador),tortugas_1);
                     break;
 
@@ -1310,6 +1380,27 @@ void DrawCollider(Collider collider){
     esat::DrawPath(coords,5);
 }
 
+void DrawRect(Collider collider, unsigned char r = 0, unsigned char g = 0, unsigned char b = 0){
+    float coords[10] = {
+        collider.P1.x,
+        collider.P1.y,
+
+        collider.P1.x,
+        collider.P2.y,
+        
+        collider.P2.x,
+        collider.P2.y,
+        
+        collider.P2.x,
+        collider.P1.y,
+
+        collider.P1.x,
+        collider.P1.y,
+    };
+    esat::DrawSetFillColor(r,g,b);
+    esat::DrawSolidPath(coords,5);
+}
+
 void DrawSprite(Sprite sprite, bool isPlayer = false){
     if(areCollidersVisible){
         if(sprite.isActive){
@@ -1364,11 +1455,30 @@ void DibujarFilaRio(Tortuga array[]){
         DrawSprite(array[i].sprite);
     }
 }
-
 // Dibujar la fila del rio pasada por parametro
 void DibujarFilaRio(Troncodrilo array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         DrawSprite(array[i].sprite);
+    }
+}
+// Dibujar la fila del rio pasada por parametro
+void DibujarZonasFinales(Sprite array[]){
+    for(int i = 0; i < maxZonasFinales; i++){
+        DrawSprite(array[i]);
+
+        
+    }
+
+    for(int i = 0, rect_I = 1; i < 5; i++){
+        DrawRect(
+            {
+                {array[rect_I].collider.P1.x,array[rect_I].collider.P1.y+SPRITE_SIZE/2},
+                {array[rect_I+1].collider.P2.x,array[rect_I+1].collider.P2.y+2}
+            },
+            //RGB
+            0,255,0
+        );
+        rect_I+=6;
     }
 }
 
@@ -1390,7 +1500,9 @@ void DibujarRio(){
             case FILA_RIO_4:
                 DibujarFilaRio(troncos_3);
             break;
-
+            case FILA_RIO_5:
+                DibujarZonasFinales(zonasFinales);
+            break;
         }
     }
 }
@@ -1479,6 +1591,7 @@ void LiberarSpriteSheets(){
     esat::SpriteRelease(tortugaSpriteSheet.spriteSheet);
     esat::SpriteRelease(troncoSpriteSheet.spriteSheet);
     esat::SpriteRelease(zonaFinalSpriteSheet.spriteSheet);
+    esat::SpriteRelease(ranaFinSpriteSheet.spriteSheet);
 }
 
 void LiberarSpritesBase(){
