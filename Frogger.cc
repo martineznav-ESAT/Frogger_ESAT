@@ -102,7 +102,7 @@ struct Rana{
 
 struct Jugador{
     Rana ranaJugador;
-    int puntuacion = 0, vidas = 0;
+    int puntuacion = 0, vidas = 0, nivelActual = 1;
     Animacion animMuerte;
 };
 
@@ -136,7 +136,7 @@ struct Tortuga{
 //-- Tamaños ventanas
 const int VENTANA_X = 672, VENTANA_Y = 768;
 const int SPRITE_SIZE = 48;
-const int VENTANA_COLUMNAS = VENTANA_X/SPRITE_SIZE, VENTANA_FILAS = VENTANA_Y/SPRITE_SIZE;
+const int VENTANA_COLUMNAS = VENTANA_X/SPRITE_SIZE +1, VENTANA_FILAS = VENTANA_Y/SPRITE_SIZE;
 
 //-- FPS
 const unsigned char FPS=60;
@@ -188,6 +188,13 @@ esat::SpriteHandle indicadorNivelSprite;
 esat::SpriteHandle vidaSprite;
 
 
+//-- UI
+int nivel = 1;
+
+// Duracion, velocidad de avance y temporizador del 
+// contador para que el jugador llegue a una zona final 
+Animacion cronometro;
+
 //-- Jugadores
 const unsigned char maxJugadores = 2;
 unsigned char jugadoresActuales = 1;
@@ -222,6 +229,13 @@ void ControlFPS(){
     }while((current_time-last_time)<=1000.0/FPS);
 }
 
+// Devuelve el valor del contador del temporizador proporcionado en milisegundos
+//  temp = temporizador del que se quiere obtener el contador
+//  unidad = unidades en las que se quiere recuperar el contador. Por defecto lo devuelve en milisegundos. Como referencia, si unidad es 1000 entonces lo devolverá en segundos
+float GetContadorFromTemp(float temp, int unidad = 1){
+    return (last_time - temp)/unidad;
+}
+
 // Actua como "trigger" donde:
 // Si el tiempo actual de ejecución menos el temporizador pasado 
 // por parametro es mayor a 'x' entonces permitirá acceso 
@@ -231,7 +245,7 @@ bool HacerCadaX(float *temp, float x){
     // printf("LOG--- Valores funcion HacerCadaX()\n");
     // printf("LOG--- T.Actual    Temp    Contador    Limite\n");
     // printf("LOG--- %14.10f | %14.10f | %14.10f |%14.10f\n",last_time,(*temp), last_time - (*temp),x);
-    isAccesible = last_time - (*temp) > x;
+    isAccesible = GetContadorFromTemp((*temp)) > x;
     if(isAccesible){
         *temp = last_time;
     }
@@ -533,13 +547,18 @@ bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
 // Inicializar valores de las ranas que aparecen al llegar a una zona final donde:
 // filaRio      -> Indica la fila del rio en la que se debe ubicar en Y
 void InicializarRanasFinales(FilaRio filaRio){
+    int posicionZona_X;
     for(int i = 0; i < maxRanasFinales; i++){
-        ranasFinales[i].collider.P1 = {((float)i*zonaFinalSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio)*SPRITE_SIZE))};
         ranasFinales[i].tipoAnimacion = 0;
         ranasFinales[i].indiceAnimacion = 0;
-        ranasFinales[i].isVisible = true;
+        ranasFinales[i].isVisible = false;
         ranasFinales[i].isActive = true;
 
+        // Recupera la posición libre de la zona final
+        posicionZona_X = (i*6+1)*zonaFinalSpriteSheet.spriteWidth;
+        ranasFinales[i].collider.P1 = {((float)posicionZona_X),((VENTANA_Y-(SPRITE_SIZE*9))-(((float)filaRio)*SPRITE_SIZE))};
+        ranasFinales[i].collider.P2 = {((float)posicionZona_X+ranaFinSpriteSheet.spriteWidth),((VENTANA_Y-(SPRITE_SIZE*8))-(((float)filaRio)*SPRITE_SIZE))};
+        
         ActualizarSprite(&ranaFinSpriteSheet, ranaFinSpriteSheet_Coords, &ranasFinales[i]);
     }
 }
@@ -849,7 +868,8 @@ void SpawnJugador(Jugador *jugador){
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
     (*jugador).ranaJugador.sprite.collider.P1 = {
-        VENTANA_X/2,(float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*8)
+        VENTANA_X/2,
+        (float)(VENTANA_Y-ranaBaseSpriteSheet.spriteHeight*8)
     };
     (*jugador).ranaJugador.sprite.collider.P2 = {
         (*jugador).ranaJugador.sprite.collider.P1.x + ranaBaseSpriteSheet.spriteWidth,
@@ -872,6 +892,7 @@ void InicializarJugadores(){
         jugadores[i].ranaJugador.sprite.isActive = true;
         jugadores[i].puntuacion = false;
         jugadores[i].vidas = 3;
+        jugadores[i].nivelActual = 1;
 
         jugadores[i].animMuerte.duracion = 2000;
         jugadores[i].animMuerte.temporizador = 0;
@@ -882,11 +903,18 @@ void InicializarJugadores(){
     }
 }
 
+void InicializarCronometro(){
+    cronometro.duracion = 30000;
+    cronometro.temporizador = last_time;
+    cronometro.velocidad = 500;
+}
+
 void InicializarNivel(){
     // Inicialización de cosas interactivas durante la ejecución del nivel
     InicializarRio();
     InicializarVehiculos();
     InicializarJugadores();
+    InicializarCronometro();
 }
 
 //*** INICIO DE ACCIONES DE LOS OBJETOS Y JUGADORES***//
@@ -952,6 +980,7 @@ void MatarJugador(Jugador *jugador){
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
     (*jugador).animMuerte.temporizador = last_time;
+    (*jugador).vidas--;
     ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
@@ -1028,6 +1057,43 @@ bool DetectarColisionJugador(Jugador player, Collider object_C) {
          (player.ranaJugador.sprite.collider.P1.x+6 < object_C.P2.x) &&
          (player.ranaJugador.sprite.collider.P2.y-6 > object_C.P1.y) &&
          (player.ranaJugador.sprite.collider.P1.y+6 < object_C.P2.y);
+}
+
+// Si está saltando, comprueba si se choca con la pared.
+// Si consigue aterrizar, se asegura que haga contacto una zona desocupada
+//      Zona Ocupada -> Mismo efecto que chocar con la pared
+//      Zona Desocupada -> Suma de puntuacion y comprobar si se ha superado el nivel, ejecutando unos ventos u otros
+void DetectarColisionZonaFinal(Jugador *jugador){
+    int victoria = 0;
+    if((*jugador).ranaJugador.isJumping){
+        for(int i = 0; i < maxZonasFinales; i++){
+            if(zonasFinales[i].isActive && DetectarColisionJugador((*jugador), zonasFinales[i].collider)){
+                MatarJugador(&(*jugador));
+            }
+        }
+    }else{
+        for(int i = 0; i < maxRanasFinales; i++){
+            if(DetectarColisionJugador((*jugador), ranasFinales[i].collider)){
+                if(ranasFinales[i].isVisible){
+                    MatarJugador(&(*jugador));
+                }else{
+                    ranasFinales[i].isVisible = true;
+                    (*jugador).puntuacion += 200;
+                    SpawnJugador(&(*jugador));
+                }
+            }
+
+            if(ranasFinales[i].isVisible){
+                victoria++;
+            }
+        }
+        printf("VICTORIA %d\n",victoria);
+
+        if(victoria == maxRanasFinales){
+            // TO_DO
+            // AvanzarNivel();
+        }
+    }
 }
 
 // Comprueba si puede posarse sobre un troncodrilo
@@ -1125,6 +1191,7 @@ void ComprobarColisionesJugador(Jugador *jugador){
                     //FINAL
                     case 14:
                         // printf("FINAL\n");
+                        DetectarColisionZonaFinal(&(*jugador));
                     break;
                     // RIO
                     case 13:
@@ -1317,10 +1384,12 @@ void ActualizarEstadoVehiculos(){
     }
 }
 
-//Actualización del estado de la animacion de muerte del jugador 
+//Actualización del estado de la animacion de muerte del jugador y sus consecuencias
 void ActualizarMuerteRanaJugador(Jugador *jugador){
     if(HacerCadaX(&(*jugador).animMuerte.temporizador, (*jugador).animMuerte.velocidad)){
+        //Fin animacion muerte
         if((*jugador).ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
+            (*jugador).vidas--;
             SpawnJugador(&(*jugador));
         }else{
             AvanzarSpriteAnimado(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
@@ -1350,7 +1419,6 @@ void ActualizarEstadoJugadores(){
             ActualizarMuerteRanaJugador(&jugadores[i]);
         }else{
             //En caso de que no...
-
             //Si la rana está saltando actualizará el estado del salto
             if(jugadores[i].ranaJugador.isJumping){
                 ActualizarSaltoRana(&jugadores[i].ranaJugador);
@@ -1360,7 +1428,6 @@ void ActualizarEstadoJugadores(){
 }
 
 void ActualizarEstadoJuego(){
-    //TO_DO
     ActualizarEstadoRio();
     ActualizarEstadoVehiculos();
     ActualizarEstadoJugadores();
@@ -1418,6 +1485,7 @@ void DrawRect(Collider collider, unsigned char r = 0, unsigned char g = 0, unsig
         collider.P1.y,
     };
     esat::DrawSetFillColor(r,g,b);
+    esat::DrawSetStrokeColor(0,0,0,0);
     esat::DrawSolidPath(coords,5);
 }
 
@@ -1446,7 +1514,7 @@ void DrawSprite(Sprite sprite, bool isPlayer = false){
 }
 
 void DibujarFondoRio(){
-    float coords[10] = {0,0,0,VENTANA_Y/2,VENTANA_X,VENTANA_Y/2,VENTANA_X,0,0,0};
+    float coords[10] = {0,0,0,(VENTANA_Y+SPRITE_SIZE)/2,VENTANA_X,(VENTANA_Y+SPRITE_SIZE)/2,VENTANA_X,0,0,0};
     esat::DrawSetFillColor(0,0,70);
     esat::DrawSolidPath(coords,5);
 }
@@ -1514,6 +1582,7 @@ void DibujarRio(){
             break;
             case FILA_RIO_5:
                 DibujarZonasFinales();
+                DibujarRanasFinales();
             break;
         }
     }
@@ -1554,12 +1623,77 @@ void DibujarJuego(){
     DibujarJugadores();
 }
 
+//Dibuja la barra de tiempo del cronometro en la parte inferior derecha de la pantalla
+void DibujarBarraCronometro(){
+    int c;
+        if(HacerDuranteX(&cronometro.temporizador, cronometro.duracion)){
+            c = (int)(cronometro.duracion-GetContadorFromTemp(cronometro.temporizador));
+
+            // A partir de los 5 segundos, se empiza a pintar la barra en rojo
+            if(c/1000 <= 5){
+                DrawRect({
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-(((c/1000)+1)*12)),VENTANA_Y-FONT_SIZE},
+                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                },
+                200,0,0);
+            }else{
+                DrawRect({
+                    // El primer punto de la barra se calcula restandole lo siguiente a VENTANA_X: 
+                    //  Por un lado:
+                    //  Lo que ocupa el texto "TIME"
+                    //
+                    //  Por otro lado:
+                    //  El valor del contador invertido "c"/1000 para que solo se actualice cada segundo al ser un entero, 
+                    //  +1 (para evitar la barra vacia con el juego activo) 
+                    //  *12 para que la barra ocupe una cantidad razonable máxima de 372px
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-(((c/1000)+1)*12)),VENTANA_Y-FONT_SIZE},
+                    // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
+                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                },
+                0,200,0);
+            }
+        }else{
+            MatarJugador(&jugadores[0]);
+        }
+}
+
+// Se encarga de dibujar la cabecera DE LA UI por completo
+void DibujarCabecera(){
+    //TO_DO
+}
+
+//Dibuja la cantidad de vidas del jugador actual
+void DibujarVidas(){
+    for(int i = 0; i < jugadores[0].vidas-1; i++){
+        esat::DrawSprite(vidaSprite,i*esat::SpriteWidth(vidaSprite),VENTANA_Y-SPRITE_SIZE);
+    }
+}
+
+//Dibuja la cantidad de niveles superados + el actual
+void DibujarNiveles(){
+    for(int i = 1; i <= jugadores[0].nivelActual; i++){
+        esat::DrawSprite(indicadorNivelSprite,VENTANA_X-(i*esat::SpriteWidth(indicadorNivelSprite)),VENTANA_Y-SPRITE_SIZE);
+    }
+}
+
+//Dibuja el texto y la barra de tiempo en la parte inferior derecha de la pantalla
+void DibujarTiempo(){
+    DibujarBarraCronometro();
+    if(((int)(cronometro.duracion-GetContadorFromTemp(cronometro.temporizador))/1000 <= 5)){
+        esat::DrawSetFillColor(200,200,200);
+    }else{
+        esat::DrawSetFillColor(255,255,0);
+    }
+    esat::DrawText(VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2,"TIME");
+}
+
+// Se encarga de dibujar el pie de la UI por completo
 void DibujarPie(){
     switch (pantallaActual){
         case JUEGO:
-            esat::DrawSetFillColor(255,255,0);
-            esat::DrawText(VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2,"TIME");
-            esat::DrawSetFillColor(255,255,255);
+            DibujarVidas();
+            DibujarNiveles();
+            DibujarTiempo();
         break;
         default:
         break;
@@ -1588,7 +1722,7 @@ void DibujarEntorno(){
     // Se dibuja lo ultimo para asegurarnos de que se muestra por encima 
     // de todo como la UI que es
     //TO_DO
-    // DibujarCabecera()
+    DibujarCabecera();
     DibujarPie();
 } 
 
@@ -1610,6 +1744,24 @@ void LiberarSpritesBase(){
     esat::SpriteRelease(arbustoSprite);
     esat::SpriteRelease(indicadorNivelSprite);
     esat::SpriteRelease(vidaSprite);
+}
+
+void LiberarSpritesZonaFinal(){
+    //Libera los sprites del muro final
+    for(int i = 0; i < maxZonasFinales; i++){
+        esat::SpriteRelease(zonasFinales[i].imagen);
+    }
+
+    //Libera los sprites de las ranas finales
+    for(int i = 0; i < maxRanasFinales; i++){
+        esat::SpriteRelease(ranasFinales[i].imagen);
+    }
+
+    //TO_DO
+    //Libera los sprites de las moscas bonus
+
+    //TO_DO
+    //Libera los sprites de cocodrilo trampa
 }
 
 void LiberarSpritesRio(){
@@ -1670,6 +1822,7 @@ void LiberarSpritesJugadores(){
 
 //Libera de memoria todos los spriteHandle inicializados
 void LiberarSprites(){
+    LiberarSpritesZonaFinal();
     LiberarSpritesRio();
     LiberarSpritesVehiculos();
     LiberarSpritesJugadores();
