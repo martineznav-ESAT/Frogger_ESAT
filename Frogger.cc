@@ -12,6 +12,7 @@
 enum Pantalla {
     INTRO,
     PUNTUACIONES,
+    INSERT,
     RANKING,
     START,
     JUEGO
@@ -162,14 +163,6 @@ double current_time,last_time;
 //-- Prototipado
 bool areCollidersVisible = false;
 
-//-- UI
-const unsigned char FONT_SIZE = 24;
-
-Pantalla pantallaActual = INTRO;
-
-//-- Fin UI
-
-
 //-- SpriteSheets y arrays de coordenadas del mismo
 // Estos arrays no se incluyen en el propio spriteSheet para poder inicializar su tamaño
 // evitando problemas de acceso a memoria al no tener la capacidad de usar gestión dinámica de memoria
@@ -196,16 +189,32 @@ int zonaFinalSpriteSheet_Coords[8];
 SpriteSheet ranaFinSpriteSheet;
 int ranaFinSpriteSheet_Coords[4];
 
+SpriteSheet tituloSpriteSheet;
+int tituloSpriteSheet_Coords[10];
+
+SpriteSheet ranaIntroSpriteSheet;
+int ranaIntroSpriteSheet_Coords[4];
+
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
 //  -No necesitan collider
 esat::SpriteHandle arbustoSprite;
 esat::SpriteHandle indicadorNivelSprite;
 esat::SpriteHandle vidaSprite;
-
+esat::SpriteHandle copySprite;
 
 //-- UI
-int nivel = 1;
+const unsigned char FONT_SIZE = 24;
+const unsigned char maxScoreDigits = 5, maxCreditDigits = 2;
+int hiScore = 0, credits = 0;
+
+const unsigned char maxLetrasTitulo = 7;
+Sprite letrasTitulo[maxLetrasTitulo];
+
+const unsigned char maxRankingScores = 5;
+int rankingScores[maxRankingScores] = {0,0,0,0,0};
+
+Pantalla pantallaActual = INTRO;
 
 // Duracion, velocidad de avance y temporizador del 
 // contador para que el jugador llegue a una zona final 
@@ -213,7 +222,7 @@ Animacion cronometro;
 
 //-- Jugadores
 const unsigned char maxJugadores = 2;
-unsigned char jugadorActual = 1;
+unsigned char jugadorActual = 0;
 Jugador jugadores[maxJugadores];
 
 //-- Obstáculos
@@ -437,12 +446,31 @@ void InicializarSpriteSheets(){
         1,
         2
     );
+
+    // Inicializa el SpriteSheet del titulo del juego y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/TituloSpriteSheet.png",
+        &tituloSpriteSheet,
+        tituloSpriteSheet_Coords,
+        1,
+        5
+    );
+
+    // Inicializa el SpriteSheet de las ranas que aparecen en la intro del juego
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/RanaIntroSpriteSheet.png",
+        &ranaIntroSpriteSheet,
+        ranaIntroSpriteSheet_Coords,
+        1,
+        2
+    );
 }
 
 void InicializarSprites(){
     arbustoSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/ArbustoSprite.png");
     indicadorNivelSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/IndicadorNivelSprite.png");
     vidaSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/VidaSprite.png");
+    copySprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/CopySprite.png");
 }
 
 //*** MANEJO DE SPRITES/SPRITESHEETS ***/
@@ -556,6 +584,66 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
 //TO_DO GESTION DE INFORMACIÓN EN BASE AL NIVEL
 
+// Inicializa los sprites del rótulo del juego que aparecen en las pantallas de INTRO, PUNTUACION y RANKING asegurandose de que aparecen en la ubicacion correcta
+// El parametro booleano indica si debe inicializarse en base a: 
+//  -INTRO. Ubicando los sprites como ranas fuera de la pantalla
+//  -PUNTUACION/RANKING Ubicando los sprites como el rótulo
+void InicializarTitulo(bool isIntro = false){
+    for(int i = 0; i < maxLetrasTitulo; i++){
+        letrasTitulo[i].tipoAnimacion = 0;
+        letrasTitulo[i].isVisible = true;
+        letrasTitulo[i].isActive = false;
+
+        if(isIntro){
+            letrasTitulo[i].indiceAnimacion = 2;
+            letrasTitulo[i].collider = {
+                {VENTANA_X,SPRITE_SIZE*9},
+                {VENTANA_X+SPRITE_SIZE,SPRITE_SIZE*10}
+            };
+            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[i]);
+        }else{
+            if(i == 0){
+                letrasTitulo[i].collider = {
+                    {(i+2.0f)*SPRITE_SIZE,SPRITE_SIZE*3},
+                    {(i+3.0f)*SPRITE_SIZE,SPRITE_SIZE*4}
+                };
+            }else{
+                letrasTitulo[i].collider = {
+                    {letrasTitulo[i-1].collider.P2.x+(SPRITE_SIZE/2),letrasTitulo[i-1].collider.P1.y},
+                    {letrasTitulo[i-1].collider.P2.x+((SPRITE_SIZE/2)+SPRITE_SIZE),letrasTitulo[i-1].collider.P2.y},
+                };
+            }
+
+            switch(i){
+                case 0:
+                    //AsignarLetra F
+                    letrasTitulo[i].indiceAnimacion = 0;
+                break;
+                case 1:
+                case 6:
+                    //AsignarLetra R
+                    letrasTitulo[i].indiceAnimacion = 2;    
+                break;
+                case 2:
+                    //AsignarLetra O
+                    letrasTitulo[i].indiceAnimacion = 4;
+                break;
+                case 3:
+                case 4:
+                    //AsignarLetra G
+                    letrasTitulo[i].indiceAnimacion = 6;
+                break;
+                case 5:
+                    //AsignarLetra E
+                    letrasTitulo[i].indiceAnimacion = 8;
+                break;
+            }
+            ActualizarSprite(&tituloSpriteSheet,tituloSpriteSheet_Coords,&letrasTitulo[i]);
+        }
+    }
+}   
+
+//Comprueba si el grupo de obstaculos puede generarse sin problemas en su fila correspondiente
 bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
     return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
 }
@@ -994,7 +1082,6 @@ void MatarJugador(Jugador *jugador){
     (*jugador).ranaJugador.sprite.tipoAnimacion = 0;
     (*jugador).ranaJugador.sprite.indiceAnimacion = 0;
     (*jugador).animMuerte.temporizador = last_time;
-    (*jugador).vidas--;
     ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
@@ -1004,7 +1091,7 @@ void DetectarControles(){
         // CONTROLES RANA_J1
         // El jugador podrá realizar acciones siempre que:
         //   - No esté saltando
-        if(!jugadores[0].ranaJugador.isJumping && jugadores[0].ranaJugador.sprite.isActive){
+        if(!jugadores[0].ranaJugador.isJumping && jugadores[jugadorActual].ranaJugador.sprite.isActive){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Up)){
                 IniciarSaltoRana(&jugadores[0].ranaJugador, ARRIBA);
             }
@@ -1023,23 +1110,28 @@ void DetectarControles(){
     //PROTOTIPADO
     if(esat::IsKeyDown('1')){
         printf("INTRO\n");
+        InicializarTitulo(true);
         pantallaActual = INTRO;
     }
     if(esat::IsKeyDown('2')){
         printf("PUNTUACIONES\n");
+        InicializarTitulo();
         pantallaActual = PUNTUACIONES;
     }
     if(esat::IsKeyDown('3')){
         printf("RANKING\n");
+        InicializarTitulo();
         pantallaActual = RANKING;
-        InicializarNivel();
     }
     if(esat::IsKeyDown('4')){
-        printf("START\n");
-        pantallaActual = START;
-        InicializarNivel();
+        printf("INSERT\n");
+        pantallaActual = INSERT;
     }
     if(esat::IsKeyDown('5')){
+        printf("START\n");
+        pantallaActual = START;
+    }
+    if(esat::IsKeyDown('6')){
         printf("JUEGO\n");
         pantallaActual = JUEGO;
         InicializarNivel();
@@ -1470,6 +1562,9 @@ void ActualizarEstados(){
         case RANKING:
             // ActualizarEstadoRanking();
             break;
+        case INSERT:
+            // ActualizarEstadoRanking();
+            break;
         case START:
             // ActualizarEstadoStart();
             break;
@@ -1501,70 +1596,105 @@ void DrawCollider(Collider collider){
     esat::DrawPath(coords,5);
 }
 
-// Dibujados de texto y sobrecargas en función de los parametros
+//** Dibujados de texto y sobrecargas en función de los parametros  **/
+
+// Muestra el texto indicado por pantalla con las características proporcionadas.
+//  -texto -> Texto a mostrar
+//  -ubicacion -> Indica un punto de coordenadas específico desde el que empezar a dibujar
+//  -color  -> Indica de que color se mostrará el texto con el struct Color en formato RGBa. Por defecto 200,200,200,255
 void DrawText(char texto[], PuntoCoord ubicacion, Color color = {200,200,200,255}){
     esat::DrawSetFillColor(color.r,color.g,color.b,color.a);
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
-void DrawText(char texto[], int longitud, float ubi_y, Align_H alineacion, Color color = {200,200,200,255}){
+
+// Muestra el texto indicado por pantalla con las características proporcionadas.
+//  -texto -> Texto a mostrar
+//  -longitud -> Longitud del texto para calcular correctamente las alineaciones
+//  -ubi_y -> Indica una ubicacion específica en coordenada Y
+//  -alineacionH -> Alineacion en vertical
+//  -margen_X -> Desplazamiento en horizontal adicional a partir de alineacionH (indicar positivo o negativo)
+//  -color  -> Indica de que color se mostrará el texto con el struct Color en formato RGBa. Por defecto 200,200,200,255
+void DrawText(char texto[], int longitud, float ubi_y, Align_H alineacion, float margen_x, Color color = {200,200,200,255}){
     PuntoCoord ubicacion = {0.0,ubi_y};
     switch(alineacion){
         case LEFT:
             ubicacion.x = VENTANA_X-(FONT_SIZE*longitud);
             break;
         case CENT:
-            ubicacion.x = VENTANA_Y/2-(FONT_SIZE*((longitud/2)+1));
+            ubicacion.x = VENTANA_X/2-(FONT_SIZE*(longitud/2-(longitud%2 == 0 ? 1 : 0)));
             break;
         case RIGHT:
             ubicacion.x = 0;
             break;
     }
+    ubicacion.x += margen_x;
 
     esat::DrawSetFillColor(color.r,color.g,color.b,color.a);
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
-void DrawText(char texto[], int longitud, float ubi_x, Align_V alineacion, Color color = {200,200,200,255}){
+// Muestra el texto indicado por pantalla con las características proporcionadas.
+//  -texto -> Texto a mostrar
+//  -longitud -> Longitud del texto para calcular correctamente las alineaciones
+//  -ubi_x -> Indica una ubicacion específica en coordenada X
+//  -alineacionV -> Alineacion en vertical
+//  -margen_y -> Desplazamiento en vertical adicional a partir de alineacionV (indicar positivo o negativo)
+//  -color  -> Indica de que color se mostrará el texto con el struct Color en formato RGBa. Por defecto 200,200,200,255
+void DrawText(char texto[], int longitud, float ubi_x, Align_V alineacion, float margen_y, Color color = {200,200,200,255}){
     PuntoCoord ubicacion = {ubi_x,0.0};
     switch(alineacion){
         case TOP:
-            ubicacion.y = FONT_SIZE+2;
+            ubicacion.y = FONT_SIZE;
             break;
         case MID:
             ubicacion.y = VENTANA_Y/2-(FONT_SIZE*((longitud/2)+1));
             break;
         case BOT:
-            ubicacion.y = VENTANA_Y-2;
+            ubicacion.y = VENTANA_Y;
             break;
     }
+
+    ubicacion.y += margen_y;
 
     esat::DrawSetFillColor(color.r,color.g,color.b,color.a);
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
 
-void DrawText(char texto[], int longitud, Align_V alineacionV, Align_H alineacionH, Color color = {200,200,200,255}){
+// Muestra el texto indicado por pantalla con las características proporcionadas.
+//  -texto -> Texto a mostrar
+//  -longitud -> Longitud del texto para calcular correctamente las alineaciones
+//  -alineacionV -> Alineacion en vertical
+//  -alineacionH -> Alineacion en horizontal
+//  -margen_y -> Desplazamiento en vertical adicional a partir de alineacionV (indicar positivo o negativo)
+//  -margen_x -> Desplazamiento en horizontal adicional a partir de alineacionH (indicar positivo o negativo)
+//  -color  -> Indica de que color se mostrará el texto con el struct Color en formato RGBa. Por defecto 200,200,200,255
+void DrawText(char texto[], int longitud, Align_V alineacionV, Align_H alineacionH, float margen_y, float margen_x, Color color = {200,200,200,255}){
     PuntoCoord ubicacion = {0.0,0.0};
     switch(alineacionH){
         case LEFT:
-            ubicacion.x = VENTANA_X-(FONT_SIZE*longitud);
+            ubicacion.x = 0;
             break;
         case CENT:
-            ubicacion.x = VENTANA_Y/2-(FONT_SIZE*((longitud/2)+1));
+            //Le restara 1 a la longitud a desplazarse si es par para corregir el centro segun el juego original (Operación ternaria)
+            ubicacion.x = VENTANA_X/2-(FONT_SIZE*(longitud/2-(longitud%2 == 0 ? 1 : 0)));
             break;
         case RIGHT:
-            ubicacion.x = 0;
+            ubicacion.x = VENTANA_X-(FONT_SIZE*longitud);
             break;
     }
     switch(alineacionV){
         case TOP:
-            ubicacion.y = FONT_SIZE+2;
+            ubicacion.y = FONT_SIZE;
             break;
         case MID:
-            ubicacion.y = VENTANA_Y/2-(FONT_SIZE*((longitud/2)+1));
+            ubicacion.y = VENTANA_Y/2;
             break;
         case BOT:
-            ubicacion.y = VENTANA_Y-2;
+            ubicacion.y = VENTANA_Y;
             break;
     }
+
+    ubicacion.x += margen_x;
+    ubicacion.y += margen_y;
 
     esat::DrawSetFillColor(color.r,color.g,color.b,color.a);
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
@@ -1617,34 +1747,121 @@ void DrawSprite(Sprite sprite, bool isPlayer = false){
 }
 
 void DibujarFondoRio(){
-    float coords[10] = {0,0,0,(VENTANA_Y+SPRITE_SIZE)/2,VENTANA_X,(VENTANA_Y+SPRITE_SIZE)/2,VENTANA_X,0,0,0};
-    esat::DrawSetFillColor(0,0,70);
-    esat::DrawSolidPath(coords,5);
+    DrawRect({{0,0},{VENTANA_X,(VENTANA_Y)/2}},{0,0,70});
 }
 
 //-- DIBUJADO PANTALLA DE INTRO --//
+void DibujarTitulo(){
+    for(int i = 0; i < maxLetrasTitulo; i++){
+        DrawSprite(letrasTitulo[i]);
+    }
+}
+
+void DibujarCopyrightKonami(){
+    esat::DrawSetTextSize(FONT_SIZE);
+    DrawText("KONAMI",0,MID,LEFT,FONT_SIZE*13,FONT_SIZE*6);
+    esat::DrawSprite(copySprite,VENTANA_X/2,(VENTANA_Y/2)+(FONT_SIZE*12));
+    DrawText("1981",4,MID,RIGHT,FONT_SIZE*13,FONT_SIZE*-7);
+    esat::DrawSetTextSize(FONT_SIZE);
+}
+
+
 void DibujarIntro(){
-    esat::DrawSetFillColor(200,200,200);
-    esat::DrawText(100,100,"INTRO");
-    DrawText("INTRO",{200,100});
+    DibujarTitulo();
 }
 
 //-- DIBUJADO PANTALLA DE PUNTUACIONES --//
 void DibujarPuntuaciones(){
-    esat::DrawSetFillColor(200,200,200);
-    esat::DrawText(100,100,"PUNTUACIONES");
+    DibujarTitulo();
+
+    DrawText("-POINT TABLE-",13,MID,CENT,FONT_SIZE*-5,0);
+
+    //Los que están alineados a la izquierda, no importa su longitud de texto
+    DrawText("10 PTS FOR EACH STEP",0,MID,LEFT,FONT_SIZE*-2,FONT_SIZE*2,{200,200,0});
+
+    DrawText("50 PTS FOR EVERY FROG",0,MID,LEFT,FONT_SIZE,FONT_SIZE*2,{200,200,0});
+    DrawText("ARRIVED HOME SAFELY",0,MID,LEFT,FONT_SIZE*2,FONT_SIZE*2,{200,0,0});
+
+    DrawText("1000 PTS BY SAVING FROGS",0,MID,LEFT,FONT_SIZE*4,FONT_SIZE*2,{200,200,0});
+    DrawText("INTO FIVE HOMES",0,MID,LEFT,FONT_SIZE*5,FONT_SIZE*2,{200,0,0});
+
+    DrawText("PLUS BONUS",0,MID,LEFT,FONT_SIZE*7,FONT_SIZE*2,{200,200,0});
+    DrawText("10 PTS X REMAINING SECOND",0,MID,LEFT,FONT_SIZE*8,FONT_SIZE*2,{200,0,0});
+
+    DibujarCopyrightKonami();
 }
 
 //-- DIBUJADO PANTALLA DE RANKING --//
 void DibujarRanking(){
-    esat::DrawSetFillColor(200,200,200);
-    esat::DrawText(100,100,"RANKING");
+    char scoreDigits[maxScoreDigits];
+    DibujarTitulo();
+
+    DrawText("SCORE RANKING",13,MID,CENT,FONT_SIZE*-3,0,{200,200,0});
+
+    for(int i = 0, k = 0; i < maxRankingScores; i++, k++){
+        switch (i){
+        case 0:
+            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+            }else{
+                DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+            }
+            break;
+        case 1:
+            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+            }else{
+                DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+            }
+            break;
+        case 2:
+            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+            }else{
+                DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+            }
+            break;
+        case 3:
+            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+            }else{
+                DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+            }
+            break;
+        case 4:
+            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+            }else{
+                DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+            }
+            break;
+        }
+        itoa(rankingScores[i]+100000,scoreDigits,10);
+        if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+            DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2,{220,70,220});
+            DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7,{220,70,220});
+        }else{
+            DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2);
+            DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7);
+        }
+        
+    }
+
+    DibujarCopyrightKonami();
+}
+
+//-- DIBUJADO PANTALLA DE INSERT COIN --//
+void DibujarInsert(){
+    DrawText("INSERT COIN",12,MID,CENT,FONT_SIZE*-2,0,{0,200,0});
+    DrawText("3 FROGS  PER PLAYER",19,MID,CENT,FONT_SIZE*6,0,{200,200,0});
 }
 
 //-- DIBUJADO PANTALLA DE START --//
 void DibujarStart(){
-    esat::DrawSetFillColor(200,200,200);
-    esat::DrawText(100,100,"START");
+    DrawText("PUSH",4,MID,CENT,FONT_SIZE*-7,0);
+    DrawText("START BUTTON",12,MID,CENT,FONT_SIZE*-2,0,{220,70,220});
+    DrawText("ONE PLAYER ONLY",15,MID,CENT,FONT_SIZE*2,0);
+    DrawText("ONE EXTRA FROG 20000 PTS",24,MID,CENT,FONT_SIZE*5,0,{200,0,0});
 }
 
 
@@ -1787,9 +2004,23 @@ void DibujarBarraCronometro(){
         }
 }
 
-// Se encarga de dibujar la cabecera DE LA UI por completo
+// Se encarga de dibujar la cabecera de la UI por completo
 void DibujarCabecera(){
-    DrawText("HI-SCORE",8,326,CENT);
+    char scoreDigits[maxScoreDigits];
+
+    //Puntuacion del jugador
+    if(jugadorActual == 0){
+        DrawText("1-UP",4+16,TOP,CENT,0,0);
+    }else{
+        DrawText("2-UP",4+16,TOP,CENT,0,0);
+    }
+    itoa(jugadores[jugadorActual].puntuacion+100000,scoreDigits,10);
+    DrawText(scoreDigits+1,maxScoreDigits+16,TOP,CENT,FONT_SIZE,0,{200,0,0});
+
+    //Puntuacion mas alta durante esta ejecución
+    DrawText("HI-SCORE",8,TOP,CENT,0,0);
+    itoa(hiScore+100000,scoreDigits,10);
+    DrawText(scoreDigits+1,maxScoreDigits,TOP,CENT,FONT_SIZE,0,{200,0,0});
 }
 
 //Dibuja la cantidad de vidas del jugador actual
@@ -1810,11 +2041,10 @@ void DibujarNiveles(){
 void DibujarTiempo(){
     DibujarBarraCronometro();
     if(((int)(cronometro.duracion-GetContadorFromTemp(cronometro.temporizador))/1000 <= 5)){
-        esat::DrawSetFillColor(200,200,200);
+        DrawText("TIME",4,BOT,RIGHT,-2,0);
     }else{
-        esat::DrawSetFillColor(255,255,0);
+        DrawText("TIME",4,BOT,RIGHT,-2,0,{255,255,0});
     }
-    esat::DrawText(VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2,"TIME");
 }
 
 // Se encarga de dibujar el pie de la UI por completo
@@ -1826,6 +2056,12 @@ void DibujarPie(){
             DibujarTiempo();
         break;
         default:
+            char creditDigits[maxCreditDigits];
+            //Dibuja los creditos
+            itoa(credits+100,creditDigits,10);
+            DrawText(creditDigits+1,maxCreditDigits,BOT,RIGHT,-2,0,{0,200,255});
+
+            DrawText("CREDIT",6,BOT,RIGHT,-2,FONT_SIZE*-3,{0,200,255});
         break;
     }
 }
@@ -1848,6 +2084,9 @@ void DibujarEntorno(){
             break;
         case RANKING:
             DibujarRanking();
+            break;
+        case INSERT:
+            DibujarInsert();
             break;
         case START:
             DibujarStart();
@@ -1876,12 +2115,22 @@ void LiberarSpriteSheets(){
     esat::SpriteRelease(troncoSpriteSheet.spriteSheet);
     esat::SpriteRelease(zonaFinalSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaFinSpriteSheet.spriteSheet);
+    esat::SpriteRelease(tituloSpriteSheet.spriteSheet);
+    esat::SpriteRelease(ranaIntroSpriteSheet.spriteSheet);
 }
 
 void LiberarSpritesBase(){
     esat::SpriteRelease(arbustoSprite);
     esat::SpriteRelease(indicadorNivelSprite);
     esat::SpriteRelease(vidaSprite);
+    esat::SpriteRelease(copySprite);
+}
+
+void LiberarSpritesLetrasTitulo(){
+    //Libera los sprites del muro final
+    for(int i = 0; i < maxLetrasTitulo; i++){
+        esat::SpriteRelease(letrasTitulo[i].imagen);
+    }
 }
 
 void LiberarSpritesZonaFinal(){
@@ -1983,6 +2232,7 @@ int esat::main(int argc, char **argv) {
     // que otros los puedan usar
     InicializarSpriteSheets();
     InicializarSprites();
+    InicializarTitulo(true);
 
     while(esat::WindowIsOpened() && !esat::IsSpecialKeyDown(esat::kSpecialKey_Escape)) {
         last_time = esat::Time(); 
