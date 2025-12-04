@@ -215,6 +215,11 @@ const unsigned char maxRankingScores = 5;
 int rankingScores[maxRankingScores] = {0,0,0,0,0};
 
 Pantalla pantallaActual = INTRO;
+Animacion animIntro = {37000,1000,0};
+Animacion animPuntuaciones = {10000,1000,0};
+Animacion animRanking = {3000,1000,0};
+Animacion animInsert = {3000,1000,0};
+Animacion animBarrido = {3000,1000,0};
 
 // Duracion, velocidad de avance y temporizador del 
 // contador para que el jugador llegue a una zona final 
@@ -1111,20 +1116,24 @@ void DetectarControles(){
     if(esat::IsKeyDown('1')){
         printf("INTRO\n");
         InicializarTitulo(true);
+        animIntro.temporizador=last_time;
         pantallaActual = INTRO;
     }
     if(esat::IsKeyDown('2')){
         printf("PUNTUACIONES\n");
         InicializarTitulo();
+        animPuntuaciones.temporizador=last_time;
         pantallaActual = PUNTUACIONES;
     }
     if(esat::IsKeyDown('3')){
         printf("RANKING\n");
         InicializarTitulo();
+        animRanking.temporizador=last_time;
         pantallaActual = RANKING;
     }
     if(esat::IsKeyDown('4')){
         printf("INSERT\n");
+        animInsert.temporizador=last_time;
         pantallaActual = INSERT;
     }
     if(esat::IsKeyDown('5')){
@@ -1507,7 +1516,12 @@ void ActualizarMuerteRanaJugador(Jugador *jugador){
         if((*jugador).ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
             (*jugador).vidas--;
             if((*jugador).vidas <= 0){
-                pantallaActual = RANKING;
+                if(credits>0){
+                    pantallaActual = START;
+                }else{
+                    animInsert.temporizador = last_time;
+                    pantallaActual = INSERT;
+                }
             }else{
                 SpawnJugador(&(*jugador));
             }
@@ -1545,6 +1559,10 @@ void ActualizarEstadoJugador(){
     }
 }
 
+void ActualizarEstadoIntro(){
+
+}
+
 void ActualizarEstadoJuego(){
     ActualizarEstadoRio();
     ActualizarEstadoVehiculos();
@@ -1554,19 +1572,7 @@ void ActualizarEstadoJuego(){
 void ActualizarEstados(){
     switch(pantallaActual){
         case INTRO:
-            // ActualizarEstadoIntro();
-            break;
-        case PUNTUACIONES:
-            // ActualizarEstadoPuntuaciones();
-            break;
-        case RANKING:
-            // ActualizarEstadoRanking();
-            break;
-        case INSERT:
-            // ActualizarEstadoRanking();
-            break;
-        case START:
-            // ActualizarEstadoStart();
+            ActualizarEstadoIntro();
             break;
         case JUEGO:
             ActualizarEstadoJuego();
@@ -1767,93 +1773,131 @@ void DibujarCopyrightKonami(){
 
 
 void DibujarIntro(){
-    DibujarTitulo();
+    if(HacerDuranteX(&animIntro.temporizador,animIntro.duracion)){
+        // La los movimientos de la animacion se ejecutan en la actualización de estados.
+        // solo si está en la pantalla de INTRO
+        DibujarTitulo();
+    }else{
+        InicializarTitulo();
+        animPuntuaciones.temporizador = last_time;
+        pantallaActual = PUNTUACIONES;
+    }
 }
 
 //-- DIBUJADO PANTALLA DE PUNTUACIONES --//
 void DibujarPuntuaciones(){
-    DibujarTitulo();
+    // int limiteAparicion sirve para calcular cada cuanto tiempo deberá de aparecer cada texto comparandolo con el resultado de GetContadorFromTemp
+    // Por cada limiteAparicion += 2 en este caso, tarda 2 segundos mas en aparecer que el if anterior;
+    int limiteAparicion = 1, contador;
+    if(HacerDuranteX(&animPuntuaciones.temporizador,animPuntuaciones.duracion)){
+        DibujarTitulo();
+        DrawText("-POINT TABLE-",13,MID,CENT,FONT_SIZE*-5,0);
 
-    DrawText("-POINT TABLE-",13,MID,CENT,FONT_SIZE*-5,0);
+        contador = GetContadorFromTemp(animPuntuaciones.temporizador);
 
-    //Los que están alineados a la izquierda, no importa su longitud de texto
-    DrawText("10 PTS FOR EACH STEP",0,MID,LEFT,FONT_SIZE*-2,FONT_SIZE*2,{200,200,0});
+        if(contador >= (int)(animPuntuaciones.velocidad)*limiteAparicion){
+            //Los que están alineados a la izquierda, no importa su longitud de texto
+            DrawText("10 PTS FOR EACH STEP",0,MID,LEFT,FONT_SIZE*-2,FONT_SIZE*2,{200,200,0});
+        }
+        limiteAparicion+=2;
+        if(contador >= (int)(animPuntuaciones.velocidad)*limiteAparicion){
+            DrawText("50 PTS FOR EVERY FROG",0,MID,LEFT,FONT_SIZE,FONT_SIZE*2,{200,200,0});
+            DrawText("ARRIVED HOME SAFELY",0,MID,LEFT,FONT_SIZE*2,FONT_SIZE*2,{200,0,0});
+        }
+        limiteAparicion+=2;
+        if(contador >= (int)(animPuntuaciones.velocidad)*limiteAparicion){
+            DrawText("1000 PTS BY SAVING FROGS",0,MID,LEFT,FONT_SIZE*4,FONT_SIZE*2,{200,200,0});
+            DrawText("INTO FIVE HOMES",0,MID,LEFT,FONT_SIZE*5,FONT_SIZE*2,{200,0,0});
+        }
+        limiteAparicion+=2;
+        if(contador >= (int)(animPuntuaciones.velocidad)*limiteAparicion){
+            DrawText("PLUS BONUS",0,MID,LEFT,FONT_SIZE*7,FONT_SIZE*2,{200,200,0});
+            DrawText("10 PTS X REMAINING SECOND",0,MID,LEFT,FONT_SIZE*8,FONT_SIZE*2,{200,0,0});
+        }
 
-    DrawText("50 PTS FOR EVERY FROG",0,MID,LEFT,FONT_SIZE,FONT_SIZE*2,{200,200,0});
-    DrawText("ARRIVED HOME SAFELY",0,MID,LEFT,FONT_SIZE*2,FONT_SIZE*2,{200,0,0});
+        DibujarCopyrightKonami();
+    }else{
+        InicializarTitulo();
+        animRanking.temporizador = last_time;
+        pantallaActual = RANKING;
+    }
 
-    DrawText("1000 PTS BY SAVING FROGS",0,MID,LEFT,FONT_SIZE*4,FONT_SIZE*2,{200,200,0});
-    DrawText("INTO FIVE HOMES",0,MID,LEFT,FONT_SIZE*5,FONT_SIZE*2,{200,0,0});
-
-    DrawText("PLUS BONUS",0,MID,LEFT,FONT_SIZE*7,FONT_SIZE*2,{200,200,0});
-    DrawText("10 PTS X REMAINING SECOND",0,MID,LEFT,FONT_SIZE*8,FONT_SIZE*2,{200,0,0});
-
-    DibujarCopyrightKonami();
 }
 
 //-- DIBUJADO PANTALLA DE RANKING --//
 void DibujarRanking(){
     char scoreDigits[maxScoreDigits];
-    DibujarTitulo();
+    if(HacerDuranteX(&animRanking.temporizador,animRanking.duracion)){
+        DibujarTitulo();
 
-    DrawText("SCORE RANKING",13,MID,CENT,FONT_SIZE*-3,0,{200,200,0});
+        DrawText("SCORE RANKING",13,MID,CENT,FONT_SIZE*-3,0,{200,200,0});
 
-    for(int i = 0, k = 0; i < maxRankingScores; i++, k++){
-        switch (i){
-        case 0:
-            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-                DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
-            }else{
-                DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+        for(int i = 0, k = 0; i < maxRankingScores; i++, k++){
+            switch (i){
+            case 0:
+                if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                }else{
+                    DrawText("1 ST",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                }
+                break;
+            case 1:
+                if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                }else{
+                    DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                }
+                break;
+            case 2:
+                if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                }else{
+                    DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                }
+                break;
+            case 3:
+                if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                }else{
+                    DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                }
+                break;
+            case 4:
+                if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                }else{
+                    DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                }
+                break;
             }
-            break;
-        case 1:
+            itoa(rankingScores[i]+100000,scoreDigits,10);
             if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-                DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
+                DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2,{220,70,220});
+                DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7,{220,70,220});
             }else{
-                DrawText("2 ND",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
+                DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2);
+                DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7);
             }
-            break;
-        case 2:
-            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-                DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
-            }else{
-                DrawText("3 RD",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
-            }
-            break;
-        case 3:
-            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-                DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
-            }else{
-                DrawText("4 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
-            }
-            break;
-        case 4:
-            if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-                DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6,{220,70,220});
-            }else{
-                DrawText("5 TH",4,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*-6);
-            }
-            break;
+            
         }
-        itoa(rankingScores[i]+100000,scoreDigits,10);
-        if(jugadores[jugadorActual].puntuacion != 0 && jugadores[jugadorActual].puntuacion == rankingScores[i]){
-            DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2,{220,70,220});
-            DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7,{220,70,220});
-        }else{
-            DrawText(scoreDigits+1,maxScoreDigits,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*2);
-            DrawText("PTS",3,MID,CENT,FONT_SIZE*(i+k),FONT_SIZE*7);
-        }
-        
+
+        DibujarCopyrightKonami();
+    }else{
+        animInsert.temporizador = last_time;
+        pantallaActual = INSERT;
     }
-
-    DibujarCopyrightKonami();
 }
 
 //-- DIBUJADO PANTALLA DE INSERT COIN --//
 void DibujarInsert(){
-    DrawText("INSERT COIN",12,MID,CENT,FONT_SIZE*-2,0,{0,200,0});
-    DrawText("3 FROGS  PER PLAYER",19,MID,CENT,FONT_SIZE*6,0,{200,200,0});
+    if(HacerDuranteX(&animInsert.temporizador,animInsert.duracion)){
+        DrawText("INSERT COIN",12,MID,CENT,FONT_SIZE*-2,0,{0,200,0});
+        DrawText("3 FROGS  PER PLAYER",19,MID,CENT,FONT_SIZE*6,0,{200,200,0});
+    }else{
+        InicializarTitulo(true);
+        animIntro.temporizador = last_time;
+        pantallaActual = INTRO;
+    }
 }
 
 //-- DIBUJADO PANTALLA DE START --//
