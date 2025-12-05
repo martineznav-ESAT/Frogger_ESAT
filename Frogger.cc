@@ -209,7 +209,8 @@ const unsigned char maxScoreDigits = 5, maxCreditDigits = 2;
 int hiScore = 0, credits = 0;
 
 const unsigned char maxLetrasTitulo = 7;
-Sprite letrasTitulo[maxLetrasTitulo];
+int letraActual = 0;
+Rana letrasTitulo[maxLetrasTitulo];
 
 const unsigned char maxRankingScores = 5;
 int rankingScores[maxRankingScores] = {0,0,0,0,0};
@@ -594,56 +595,88 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 //  -INTRO. Ubicando los sprites como ranas fuera de la pantalla
 //  -PUNTUACION/RANKING Ubicando los sprites como el rótulo
 void InicializarTitulo(bool isIntro = false){
+    letraActual = 0;
+
     for(int i = 0; i < maxLetrasTitulo; i++){
-        letrasTitulo[i].tipoAnimacion = 0;
-        letrasTitulo[i].isVisible = true;
-        letrasTitulo[i].isActive = false;
+        letrasTitulo[i].sprite.isVisible = true;
+        letrasTitulo[i].sprite.isActive = false;
+        letrasTitulo[i].direccion = IZQUIERDA;
+        letrasTitulo[i].animSalto.temporizador = last_time;
 
         if(isIntro){
-            letrasTitulo[i].indiceAnimacion = 2;
-            letrasTitulo[i].collider = {
+            letrasTitulo[i].sprite.tipoAnimacion = 0;
+            letrasTitulo[i].sprite.indiceAnimacion = 2;
+            letrasTitulo[i].sprite.collider = {
                 {VENTANA_X,SPRITE_SIZE*9},
                 {VENTANA_X+SPRITE_SIZE,SPRITE_SIZE*10}
             };
-            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[i]);
-        }else{
+
             if(i == 0){
-                letrasTitulo[i].collider = {
+                letrasTitulo[i].finSalto = {
+                    {(i+2.0f)*SPRITE_SIZE,SPRITE_SIZE*9},
+                    {(i+3.0f)*SPRITE_SIZE,SPRITE_SIZE*10}
+                };
+            }else{
+                letrasTitulo[i].finSalto = {
+                    {letrasTitulo[i-1].finSalto.P2.x+(SPRITE_SIZE/2),letrasTitulo[i-1].finSalto.P1.y},
+                    {letrasTitulo[i-1].finSalto.P2.x+((SPRITE_SIZE/2)+SPRITE_SIZE),letrasTitulo[i-1].finSalto.P2.y},
+                };
+            }
+
+            letrasTitulo[i].distanciaSalto = letrasTitulo[i].sprite.collider.P1.x-letrasTitulo[i].finSalto.P1.x;
+            letrasTitulo[i].animSalto.velocidad = SPRITE_SIZE/2;
+
+            if(i < 3){
+                letrasTitulo[i].animSalto.duracion = 6000;
+            }else{
+                if(i < 5){
+                    letrasTitulo[i].animSalto.duracion = 3000;
+                }else{
+                    letrasTitulo[i].animSalto.duracion = 2000;
+                }
+            }
+
+            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[i].sprite);
+        }else{
+            letrasTitulo[i].sprite.tipoAnimacion = 0;
+
+            if(i == 0){
+                letrasTitulo[i].sprite.collider = {
                     {(i+2.0f)*SPRITE_SIZE,SPRITE_SIZE*3},
                     {(i+3.0f)*SPRITE_SIZE,SPRITE_SIZE*4}
                 };
             }else{
-                letrasTitulo[i].collider = {
-                    {letrasTitulo[i-1].collider.P2.x+(SPRITE_SIZE/2),letrasTitulo[i-1].collider.P1.y},
-                    {letrasTitulo[i-1].collider.P2.x+((SPRITE_SIZE/2)+SPRITE_SIZE),letrasTitulo[i-1].collider.P2.y},
+                letrasTitulo[i].sprite.collider = {
+                    {letrasTitulo[i-1].sprite.collider.P2.x+(SPRITE_SIZE/2),letrasTitulo[i-1].sprite.collider.P1.y},
+                    {letrasTitulo[i-1].sprite.collider.P2.x+((SPRITE_SIZE/2)+SPRITE_SIZE),letrasTitulo[i-1].sprite.collider.P2.y},
                 };
             }
 
             switch(i){
                 case 0:
                     //AsignarLetra F
-                    letrasTitulo[i].indiceAnimacion = 0;
+                    letrasTitulo[i].sprite.indiceAnimacion = 0;
                 break;
                 case 1:
                 case 6:
                     //AsignarLetra R
-                    letrasTitulo[i].indiceAnimacion = 2;    
+                    letrasTitulo[i].sprite.indiceAnimacion = 2;    
                 break;
                 case 2:
                     //AsignarLetra O
-                    letrasTitulo[i].indiceAnimacion = 4;
+                    letrasTitulo[i].sprite.indiceAnimacion = 4;
                 break;
                 case 3:
                 case 4:
                     //AsignarLetra G
-                    letrasTitulo[i].indiceAnimacion = 6;
+                    letrasTitulo[i].sprite.indiceAnimacion = 6;
                 break;
                 case 5:
                     //AsignarLetra E
-                    letrasTitulo[i].indiceAnimacion = 8;
+                    letrasTitulo[i].sprite.indiceAnimacion = 8;
                 break;
             }
-            ActualizarSprite(&tituloSpriteSheet,tituloSpriteSheet_Coords,&letrasTitulo[i]);
+            ActualizarSprite(&tituloSpriteSheet,tituloSpriteSheet_Coords,&letrasTitulo[i].sprite);
         }
     }
 }   
@@ -1559,9 +1592,50 @@ void ActualizarEstadoJugador(){
     }
 }
 
-void ActualizarEstadoIntro(){
+float CalcularTiempoPorAvance(float duracion, float distanciaTotal, float velocidad){
+    // printf("duracion distanciaTotal velocidad | %.2f %.2f %.2f\n", duracion, distanciaTotal, velocidad);
+    // printf("Movimientos necesarios: %.2f\n", distanciaTotal/velocidad);
+    // printf("Movimiento cada %d ms\n", (int)(duracion / (distanciaTotal/velocidad)));
+    //Se restan 10 centesimas para dar margen a la animación y funcione correctamente
+    return (duracion / (distanciaTotal/velocidad))-10;
+}
+void AvanceHorizontalIntro(int contador){
+    // tiempoCorregido se usa como contador en esta funcion para poder determinar mas facilmente la duración de cada animacion de cada letra.
+    int tiempoCorregido = 0;
+    for(int i = 0; i < letraActual; i++){
+        //Calcula todo el tiempo ocupado por las letras anteriores actual y lo almacena
+        tiempoCorregido += letrasTitulo[i].animSalto.duracion;
+    }
+
+    //Luego le resta este tiempo calculado al contador y lo reasigna
+    tiempoCorregido = contador-(tiempoCorregido/1000);
+    printf("tiempoCorregido %d\n",tiempoCorregido);
+    
+    if (tiempoCorregido <= letrasTitulo[letraActual].animSalto.duracion / 1000 && HacerCadaX(&letrasTitulo[letraActual].animSalto.temporizador, CalcularTiempoPorAvance(letrasTitulo[letraActual].animSalto.duracion, letrasTitulo[letraActual].distanciaSalto, letrasTitulo[letraActual].animSalto.velocidad))){
+        MoveCollider(&letrasTitulo[letraActual].sprite.collider,letrasTitulo[letraActual].direccion, letrasTitulo[letraActual].animSalto.velocidad);
+        if(tiempoCorregido >= letrasTitulo[letraActual].animSalto.duracion/1000){
+            RellocateSprite(&letrasTitulo[letraActual].sprite, letrasTitulo[letraActual].finSalto.P1);
+            letrasTitulo[++letraActual].animSalto.temporizador=last_time;
+        }
+    }
 
 }
+
+void ActualizarEstadoIntro(){
+    int contador = GetContadorFromTemp(animIntro.temporizador,1000);
+
+    if(contador <= 30){
+        AvanceHorizontalIntro(contador);
+        
+    }else{
+        if(contador <= 34){
+
+        }else{
+
+        }
+    }
+}
+
 
 void ActualizarEstadoJuego(){
     ActualizarEstadoRio();
@@ -1759,7 +1833,8 @@ void DibujarFondoRio(){
 //-- DIBUJADO PANTALLA DE INTRO --//
 void DibujarTitulo(){
     for(int i = 0; i < maxLetrasTitulo; i++){
-        DrawSprite(letrasTitulo[i]);
+        DrawSprite(letrasTitulo[i].sprite);
+        DrawCollider(letrasTitulo[i].finSalto);
     }
 }
 
@@ -2173,7 +2248,7 @@ void LiberarSpritesBase(){
 void LiberarSpritesLetrasTitulo(){
     //Libera los sprites del muro final
     for(int i = 0; i < maxLetrasTitulo; i++){
-        esat::SpriteRelease(letrasTitulo[i].imagen);
+        esat::SpriteRelease(letrasTitulo[i].sprite.imagen);
     }
 }
 
