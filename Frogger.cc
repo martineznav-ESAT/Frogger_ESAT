@@ -193,7 +193,7 @@ SpriteSheet tituloSpriteSheet;
 int tituloSpriteSheet_Coords[10];
 
 SpriteSheet ranaIntroSpriteSheet;
-int ranaIntroSpriteSheet_Coords[4];
+int ranaIntroSpriteSheet_Coords[12];
 
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
@@ -217,6 +217,8 @@ int rankingScores[maxRankingScores] = {0,0,0,0,0};
 
 Pantalla pantallaActual = INTRO;
 Animacion animIntro = {37000,1000,0};
+//Booleana para detectar si la animacion vertical ha empezado
+bool isAnimIntroVIniciada = false;
 Animacion animPuntuaciones = {10000,1000,0};
 Animacion animRanking = {3000,1000,0};
 Animacion animInsert = {3000,1000,0};
@@ -329,11 +331,11 @@ void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet, int spriteSheetCoord
 }
 
 
-//Dada una coordenada actual y una esperada final, devuelve false si es difetente
-bool ComprobarPosicionFinal(Collider actual, Collider final){
+//Dada una coordenada (formato collider) actual y una esperada final, devuelve true si son iguales y false si son distintas
+bool AreColliderEqual(Collider c1, Collider c2){
     return (
-        actual.P1.x == final.P1.x && actual.P2.x == final.P2.x &&
-        actual.P1.y == final.P1.y && actual.P2.y == final.P2.y
+        c1.P1.x == c2.P1.x && c1.P2.x == c2.P2.x &&
+        c1.P1.y == c2.P1.y && c1.P2.y == c2.P2.y
     );
 }
 
@@ -467,8 +469,8 @@ void InicializarSpriteSheets(){
         "./Recursos/Imagenes/SpriteSheets/RanaIntroSpriteSheet.png",
         &ranaIntroSpriteSheet,
         ranaIntroSpriteSheet_Coords,
-        1,
-        2
+        2,
+        3
     );
 }
 
@@ -494,11 +496,10 @@ esat::SpriteHandle GetSpriteFromSheet(SpriteSheet *spriteSheet, int spriteSheetC
 // ** USAR SOLO CUANDO SE DESEA CAMBIAR DE SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR **
 // Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen
 // del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que 
-// tiene el Sprite y lo dibuja
-//
-// Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
-// para prevernir leaks de memoria
+// tiene el Sprite
 void ActualizarSprite(SpriteSheet *spriteSheet, int spriteSheetCoords[], Sprite *sprite){
+    // Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
+    // para prevernir leaks de memoria
     esat::SpriteHandle buffer = (*sprite).imagen;
     (*sprite).imagen = GetSpriteFromSheet(&(*spriteSheet), spriteSheetCoords, (*sprite).tipoAnimacion,(*sprite).indiceAnimacion);
 
@@ -596,16 +597,22 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 //  -PUNTUACION/RANKING Ubicando los sprites como el rótulo
 void InicializarTitulo(bool isIntro = false){
     letraActual = 0;
+    isAnimIntroVIniciada = false;
 
     for(int i = 0; i < maxLetrasTitulo; i++){
         letrasTitulo[i].sprite.isVisible = true;
         letrasTitulo[i].sprite.isActive = false;
         letrasTitulo[i].direccion = IZQUIERDA;
         letrasTitulo[i].animSalto.temporizador = last_time;
+        // Para aprovechar el Struct de rana, se utiliza isJumping como indicador de 
+        // Avance/Retroceso de frame de animación
+        letrasTitulo[i].isJumping = true;
 
+        // INICIALIZACIÓN DE SPRITES DE LETRAS EN FUNCIÓN DE SI 
+        // ES LA PANTALLA INTRO O NO
         if(isIntro){
-            letrasTitulo[i].sprite.tipoAnimacion = 0;
-            letrasTitulo[i].sprite.indiceAnimacion = 2;
+            letrasTitulo[i].sprite.tipoAnimacion = 1;
+            letrasTitulo[i].sprite.indiceAnimacion = 0;
             letrasTitulo[i].sprite.collider = {
                 {VENTANA_X,SPRITE_SIZE*9},
                 {VENTANA_X+SPRITE_SIZE,SPRITE_SIZE*10}
@@ -1567,7 +1574,7 @@ void ActualizarMuerteRanaJugador(Jugador *jugador){
 
 void ActualizarSaltoRana(Rana *rana){
     // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-    if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion) && !ComprobarPosicionFinal((*rana).sprite.collider, (*rana).finSalto)){
+    if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion) && !AreColliderEqual((*rana).sprite.collider, (*rana).finSalto)){
         MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).animSalto.velocidad);
     }else{
         (*rana).isJumping = false;
@@ -1592,46 +1599,177 @@ void ActualizarEstadoJugador(){
     }
 }
 
+// Calcula cada cuanto tiempo debe ejecutarse algo dada una duracion, una distancia y una velocidad
+// El resultado está pensado para utilizarse en una funcion HacerCadaX como duración
 float CalcularTiempoPorAvance(float duracion, float distanciaTotal, float velocidad){
     // printf("duracion distanciaTotal velocidad | %.2f %.2f %.2f\n", duracion, distanciaTotal, velocidad);
     // printf("Movimientos necesarios: %.2f\n", distanciaTotal/velocidad);
     // printf("Movimiento cada %d ms\n", (int)(duracion / (distanciaTotal/velocidad)));
-    //Se restan 10 centesimas para dar margen a la animación y funcione correctamente
-    return (duracion / (distanciaTotal/velocidad))-10;
+    return (duracion / (distanciaTotal/velocidad));
 }
+
+void ComprobarDireccionAnimacionRanaIntro(Rana *rana){
+    // Si está en indice 0, cambia el sentido de la animacion y no comprueba nada mas
+    if((*rana).sprite.indiceAnimacion == 0){
+        (*rana).isJumping = true;
+    }else {
+        if((*rana).sprite.indiceAnimacion == ranaIntroSpriteSheet.coordsAnim-2){
+            (*rana).isJumping = false;
+        }
+    }
+}
+
+//Lógica del avance en horizontal de la introducción
 void AvanceHorizontalIntro(int contador){
     // tiempoCorregido se usa como contador en esta funcion para poder determinar mas facilmente la duración de cada animacion de cada letra.
+    // comprobando el valor con el contador para asegurar que se ejecuta en el tiempo que toca.
     int tiempoCorregido = 0;
     for(int i = 0; i < letraActual; i++){
         //Calcula todo el tiempo ocupado por las letras anteriores actual y lo almacena
         tiempoCorregido += letrasTitulo[i].animSalto.duracion;
     }
 
-    //Luego le resta este tiempo calculado al contador y lo reasigna
+    //Luego le resta este tiempo calculado al contador y lo devuelve
     tiempoCorregido = contador-(tiempoCorregido/1000);
-    printf("tiempoCorregido %d\n",tiempoCorregido);
     
-    if (tiempoCorregido <= letrasTitulo[letraActual].animSalto.duracion / 1000 && HacerCadaX(&letrasTitulo[letraActual].animSalto.temporizador, CalcularTiempoPorAvance(letrasTitulo[letraActual].animSalto.duracion, letrasTitulo[letraActual].distanciaSalto, letrasTitulo[letraActual].animSalto.velocidad))){
+    //Se restan 10 centesimas a CalcularTiempoPorAvance para dar margen a la animación y funcione correctamente
+    if (tiempoCorregido <= letrasTitulo[letraActual].animSalto.duracion/1000 && HacerCadaX(&letrasTitulo[letraActual].animSalto.temporizador, CalcularTiempoPorAvance(letrasTitulo[letraActual].animSalto.duracion, letrasTitulo[letraActual].distanciaSalto, letrasTitulo[letraActual].animSalto.velocidad)-10)){
         MoveCollider(&letrasTitulo[letraActual].sprite.collider,letrasTitulo[letraActual].direccion, letrasTitulo[letraActual].animSalto.velocidad);
+
         if(tiempoCorregido >= letrasTitulo[letraActual].animSalto.duracion/1000){
+            //Se asegura de reubicar la rana en la posicion correcta y actualiza el sprite al de la rana mirando hacia arriba
             RellocateSprite(&letrasTitulo[letraActual].sprite, letrasTitulo[letraActual].finSalto.P1);
+            letrasTitulo[letraActual].sprite.tipoAnimacion = 0;
+            letrasTitulo[letraActual].sprite.indiceAnimacion = 0;
+            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[letraActual].sprite);
+
+            // Avanza la letra actual (variable global para poder vigilarla comodamente) antes de reiniciar el temporizador
+            // Reiniciando así el temporizador de la siguiente "letra" a animar
             letrasTitulo[++letraActual].animSalto.temporizador=last_time;
+        }else{
+            // Para aprovechar el Struct de rana, se utiliza isJumping como indicador de 
+            // Avance/Retroceso de frame de animación
+            ComprobarDireccionAnimacionRanaIntro(&letrasTitulo[letraActual]);
+            if(letrasTitulo[letraActual].isJumping){
+                AvanzarSpriteAnimado(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords, &letrasTitulo[letraActual].sprite);
+            }else{
+                RetrocederSpriteAnimado(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords, &letrasTitulo[letraActual].sprite);
+            }
+
+            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[letraActual].sprite);
         }
+
     }
 
 }
 
+//Lógica del avance en vertical de la introducción de todas las letras a la vez
+void AvanceVerticalIntro(int contador){
+    for(int i = 0; i < maxLetrasTitulo; i++){
+        //Se restan 10 centesimas a CalcularTiempoPorAvance para dar margen a la animación y funcione correctamente
+        if (contador <= 34 && HacerCadaX(&letrasTitulo[i].animSalto.temporizador, CalcularTiempoPorAvance(letrasTitulo[i].animSalto.duracion, letrasTitulo[i].distanciaSalto, letrasTitulo[i].animSalto.velocidad)-10)){
+            MoveCollider(&letrasTitulo[i].sprite.collider,letrasTitulo[i].direccion, letrasTitulo[i].animSalto.velocidad);
+
+            if(contador >= 34){
+                //Se asegura de reubicar la rana en la posicion y frame correctos
+                RellocateSprite(&letrasTitulo[i].sprite, letrasTitulo[i].finSalto.P1);
+                letrasTitulo[i].sprite.indiceAnimacion = 0;
+
+                // Reiniciar el temporizador
+                letrasTitulo[i].animSalto.temporizador=last_time;
+            }else{
+                // Para aprovechar el Struct de rana, se utiliza isJumping como indicador de 
+                // Avance/Retroceso de frame de animación
+                ComprobarDireccionAnimacionRanaIntro(&letrasTitulo[i]);
+                if(letrasTitulo[i].isJumping){
+                    AvanzarSpriteAnimado(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords, &letrasTitulo[i].sprite);
+                }else{
+                    RetrocederSpriteAnimado(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords, &letrasTitulo[i].sprite);
+                }
+            }
+
+            ActualizarSprite(&ranaIntroSpriteSheet,ranaIntroSpriteSheet_Coords,&letrasTitulo[i].sprite);
+        }
+    }
+
+    // Como todas se mueven a la vez, si la primera llega al final, todas deberían haber llegado al final
+    // Terminando la animacion iniciada y asegurando que la animacion final empieza por la primera letra
+    if(AreColliderEqual(letrasTitulo[0].sprite.collider,letrasTitulo[0].finSalto)){
+        letraActual = 0;
+        isAnimIntroVIniciada = false;
+    }
+}
+
+//Actualiza los estados de las ranas en la pantalla de Intro para generar la animación inicial
 void ActualizarEstadoIntro(){
     int contador = GetContadorFromTemp(animIntro.temporizador,1000);
 
-    if(contador <= 30){
+    if(contador < 30){
         AvanceHorizontalIntro(contador);
-        
     }else{
-        if(contador <= 34){
+        if(!isAnimIntroVIniciada && contador <= 30){
+            // Si la animacion vertical no esta iniciada
+            // Se asegura de reubicar la nueva posicion final a todas
+            // las ranas de la animacion y cambiar sus valores de animación 
+            // para coincidir con la animacion vertical
+            for(int i = 0; i < maxLetrasTitulo; i++){
+                if(i == 0){
+                    letrasTitulo[i].finSalto = {
+                        {(i+2.0f)*SPRITE_SIZE,SPRITE_SIZE*3},
+                        {(i+3.0f)*SPRITE_SIZE,SPRITE_SIZE*4}
+                    };
+                }else{
+                    letrasTitulo[i].finSalto = {
+                        {letrasTitulo[i-1].finSalto.P2.x+(SPRITE_SIZE/2),letrasTitulo[i-1].finSalto.P1.y},
+                        {letrasTitulo[i-1].finSalto.P2.x+((SPRITE_SIZE/2)+SPRITE_SIZE),letrasTitulo[i-1].finSalto.P2.y},
+                    };
+                }
+                letrasTitulo[i].distanciaSalto = letrasTitulo[i].sprite.collider.P1.y-letrasTitulo[i].finSalto.P1.y;
+                letrasTitulo[i].animSalto.temporizador = last_time;
+                letrasTitulo[i].animSalto.duracion = 4000;
+                letrasTitulo[i].direccion = ARRIBA;
+            }
+            // Indica que la animacion vertical
+            // está iniciada para que actualice su estado
+            isAnimIntroVIniciada = true;
+        }
 
+        if(contador <= 34 && isAnimIntroVIniciada){
+            AvanceVerticalIntro(contador);
         }else{
+            printf("CONTADOR %d\n",contador);
+            //Usamos el contador de la primera letra ya que no hay diferencias de tiempo entre aparición de letras
+            if(letraActual < maxLetrasTitulo && HacerCadaX(&letrasTitulo[0].animSalto.temporizador, 3000/maxLetrasTitulo)){
+                letrasTitulo[letraActual].sprite.tipoAnimacion = 0;
 
+                switch(letraActual){
+                    case 0:
+                        //AsignarLetra F
+                        letrasTitulo[letraActual].sprite.indiceAnimacion = 0;
+                    break;
+                    case 1:
+                    case 6:
+                        //AsignarLetra R
+                        letrasTitulo[letraActual].sprite.indiceAnimacion = 2;    
+                    break;
+                    case 2:
+                        //AsignarLetra O
+                        letrasTitulo[letraActual].sprite.indiceAnimacion = 4;
+                    break;
+                    case 3:
+                    case 4:
+                        //AsignarLetra G
+                        letrasTitulo[letraActual].sprite.indiceAnimacion = 6;
+                    break;
+                    case 5:
+                        //AsignarLetra E
+                        letrasTitulo[letraActual].sprite.indiceAnimacion = 8;
+                    break;
+                }
+
+                ActualizarSprite(&tituloSpriteSheet,tituloSpriteSheet_Coords, &letrasTitulo[letraActual].sprite);
+                letraActual++;
+            }
         }
     }
 }
