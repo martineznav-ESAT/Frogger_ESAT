@@ -1388,13 +1388,15 @@ void DetectarColisionZonaFinal(Jugador *jugador){
 
         if(victoria == maxRanasFinales){
             printf("VICTORIA | AVANZANDO NIVEL");
+            
+            //TO_DO ANIMACION DE VICTORIA
             (*jugador).puntuacion += 1000;
             if((*jugador).nivelActual >= 5){
                 (*jugador).nivelActual = 2;
             }else{
                 (*jugador).nivelActual += 1;
             }
-            
+
             InicializarNivel();
         }
     }
@@ -1441,7 +1443,7 @@ void DetectarColisionJugadorFilaTortugas(Jugador *jugador, Tortuga tortugas[]){
     if((*jugador).ranaJugador.isJumping){
         switch((*jugador).ranaJugador.direccion){
             case DERECHA:
-                
+                //TO_DO ALGORITMO DE DETECCION DE SALTO LATERAL NO PERMITIDO
             break;
             case IZQUIERDA:
 
