@@ -115,7 +115,7 @@ struct Cronometro{
     // BarraParada indica si la barra debe continuar avanzando o no
     // TiempoVisible indica si debe mostrarse el tiempo restante con el
     //              que se ha calculado la puntuacion extra
-    bool isBarraParada = false, isTiempoVisible = true;
+    bool isBarraParada = false, isTiempoVisible = false;
 };
 
 struct Rana{
@@ -221,14 +221,14 @@ esat::SpriteHandle moscaSprite;
 //-- UI
 const unsigned char FONT_SIZE = 24;
 const unsigned char maxScoreDigits = 5, maxCreditDigits = 2, maxTimeDigits = 2;
-int hiScore = 0, credits = 0;
+int credits = 0;
 
 const unsigned char maxLetrasTitulo = 7;
 int letraActual = 0;
 Rana letrasTitulo[maxLetrasTitulo];
 
 const unsigned char maxRankingScores = 5;
-int rankingScores[maxRankingScores] = {0,0,0,0,0};
+int rankingScores[maxRankingScores] = {2350,10,0,0,0};
 
 Pantalla pantallaActual = INTRO;
 Animacion animIntro = {37000,1000,0};
@@ -1158,6 +1158,41 @@ void MatarJugador(Jugador *jugador){
     ActualizarSprite(&animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &(*jugador).ranaJugador.sprite);
 }
 
+//Comprueba en que posicion va la nueva puntuacion, la asigna y desplaza las puntuaciones por debajo
+void GuardarPuntuacion(){
+    int puntosUltimaPartida = jugadores[jugadorActual].puntuacion;
+    int i = 0, aux = -1;
+    do{
+        // aux se utiliza para manejar la puntuacion anterior para poder moverla sin eliminar el valor. 
+        // Si es -1, es el valor por defecto y por lo tanto que la nueva puntiacion no tiene posición asignada 
+        // todavia. Si recorre todo el array de puntuaciones y sigue siendo -1 significa que no es mayor a 
+        // otro de los valores del listado y por lo tanto que no se debe almacenar.
+        if(aux == -1){
+            if(jugadores[jugadorActual].puntuacion > rankingScores[i]){
+                aux = rankingScores[i];
+                rankingScores[i] = jugadores[jugadorActual].puntuacion;
+                jugadores[jugadorActual].puntuacion = aux;
+            }
+        }else{
+            // El doble if anterior se usa de esa manera para asegurar que este apartado
+            // solo se ejecuta si ha encontrado una posicion válida para la nueva puntuacion.
+            
+            // A partir de aquí, jugadores[jugadorActual].puntuacion es el valor anterior del ranking que estamos desplazando hacia abajo
+            // rankingScores[i] es el actual que queremos almacenar para la siguiente iteración.
+            // aux sirve alternar los valores para que así en la siguiente iteración funcione igual
+            
+            aux = rankingScores[i];
+            rankingScores[i] = jugadores[jugadorActual].puntuacion;
+            jugadores[jugadorActual].puntuacion = aux;
+        }
+
+        i++;
+    //Termina cuando recorra todo o cuando el valor a mover y el actual sean iguales
+    }while(i < maxRankingScores && jugadores[jugadorActual].puntuacion != rankingScores[i]);
+
+    jugadores[jugadorActual].puntuacion = puntosUltimaPartida;
+}
+
 // En función de la pantalla y creditos actuales, se comprueba si 
 // debería cambiar de pantalla y ejecuta el cambio si es necesario  
 void ComprobarCreditos(){
@@ -1223,6 +1258,12 @@ void DetectarControles(){
                 if(esat::IsSpecialKeyDown(esat::kSpecialKey_Left)){
                     IniciarSaltoRana(&jugadores[jugadorActual].ranaJugador, IZQUIERDA);
                 }
+            }
+
+            //PROTOTIPADO
+            if(esat::IsKeyDown('P')){
+                printf("PUNTOS EXTRA +1000\n");
+                jugadores[jugadorActual].puntuacion += 1000;
             }
         break;
     }
@@ -1330,6 +1371,7 @@ void DetectarColisionZonaFinal(Jugador *jugador){
                     //Puntos extra por tiempo (Se multiplica primero para no perder información en caso de que el "medio segundo" actual sea impar)
                     (*jugador).puntuacion += (cronometro.contador*10)/2 ;
 
+                    cronometro.tiempoRestante = cronometro.contador;
                     cronometro.isTiempoVisible=true;
                     SpawnJugador(&(*jugador));
                 }
@@ -1645,6 +1687,7 @@ void ActualizarMuerteRanaJugador(Jugador *jugador){
         if((*jugador).ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
             (*jugador).vidas--;
             if((*jugador).vidas <= 0){
+                GuardarPuntuacion();
                 ComprobarCreditos();
             }else{
                 SpawnJugador(&(*jugador));
@@ -2317,11 +2360,15 @@ void DibujarTiempoRestante(){
     if(cronometro.isTiempoVisible){
         //Dibuja el fondo que ocupa el espacio de los 2 textos. Se dibuja primero para no taparlo
         DrawText(" ",7,MID,CENT,FONT_SIZE*2,0,{0,0,0},{0,0,0});
-        DrawText("TIME",4,MID,CENT,FONT_SIZE*2,FONT_SIZE*-2,{200,0,0});
 
+        DrawText("TIME",4,MID,CENT,FONT_SIZE*2,FONT_SIZE*-2,{200,0,0});
         //Se suma 100 para asegurar que se muestran 2 digitos y +1 para evitar el 0 por el cronometro entero
-        itoa(cronometro.contador+101,timeDigits,10);
+        itoa(cronometro.tiempoRestante+101,timeDigits,10);
         DrawText(timeDigits+1,maxTimeDigits,MID,CENT,FONT_SIZE*2,FONT_SIZE*2,{200,0,0});
+
+        if(cronometro.contador <= 50){
+            cronometro.isTiempoVisible = false;
+        }
     }
 }
 
@@ -2352,7 +2399,7 @@ void DibujarCabecera(){
 
     //Puntuacion mas alta durante esta ejecución
     DrawText("HI-SCORE",8,TOP,CENT,0,0);
-    itoa(hiScore+100000,scoreDigits,10);
+    itoa(rankingScores[0]+100000,scoreDigits,10);
     DrawText(scoreDigits+1,maxScoreDigits,TOP,CENT,FONT_SIZE,0,{200,0,0});
 }
 
@@ -2382,27 +2429,27 @@ void DibujarBarraCronometro(){
         // A partir de los 5 segundos, se empiza a pintar la barra en rojo
         if(cronometro.contador < 10){
             DrawRect({
-                {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
-                {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
-            },
-            {200,0,0}
-        );
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                },
+                {200,0,0}
+            );
         }else{
             DrawRect({
-                // El primer punto de la barra se calcula restandole lo siguiente a VENTANA_X: 
-                //  Por un lado:
-                //  Lo que ocupa el texto "TIME"
-                //
-                //  Por otro lado:
-                //  El valor del contadorCronometro del cronometro para que solo se actualice cada medio segundo al ser un entero.
-                //  +1 (para evitar visualizar la barra vacia con el juego activo) 
-                //  *6 para que cada avance de la barra sea de 6px. 61 avances (por el +1 anterior) multiplicado de 6 hacen una cantidad razonable máxima de 366px
-                {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
-                // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
-                {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
-            },
-            {0,200,0}
-        );
+                    // El primer punto de la barra se calcula restandole lo siguiente a VENTANA_X: 
+                    //  Por un lado:
+                    //  Lo que ocupa el texto "TIME"
+                    //
+                    //  Por otro lado:
+                    //  El valor del contadorCronometro del cronometro para que solo se actualice cada medio segundo al ser un entero.
+                    //  +1 (para evitar visualizar la barra vacia con el juego activo) 
+                    //  *6 para que cada avance de la barra sea de 6px. 61 avances (por el +1 anterior) multiplicado de 6 hacen una cantidad razonable máxima de 366px
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                    // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
+                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                },
+                {0,200,0}
+            );
         }
     }else{
         MatarJugador(&jugadores[jugadorActual]);
@@ -2446,6 +2493,8 @@ void DibujarEntorno(){
     // demás dibujados
     DibujarFondoRio();
 
+    DibujarCabecera();
+    DibujarPie();
     // Dibuja todo lo que aparezca en la zona central de la ventana
     // En función de la pantalla seleccionada
     switch(pantallaActual){
@@ -2469,11 +2518,6 @@ void DibujarEntorno(){
             break;
     }
 
-    // Se dibuja lo ultimo para asegurarnos de que se muestra por encima 
-    // de todo como la UI que es
-    //TO_DO
-    DibujarCabecera();
-    DibujarPie();
 } 
 
 //*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
