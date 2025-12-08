@@ -894,7 +894,11 @@ void InicializarFilaRio(FilaRio filaRio){
             InicializarFilaTroncodrilos(troncos_1, 3, 2, 2, filaRio);
         break;
         case FILA_RIO_0:
-            InicializarFilaTortugas(tortugas_1, 3, 1, 1, filaRio);
+            if(jugadores[jugadorActual].nivelActual <= 1){
+                InicializarFilaTortugas(tortugas_1, 3, 1, 1.5, filaRio);
+            }else{
+                InicializarFilaTortugas(tortugas_1, 3, 3, 1, filaRio);
+            }
         break;
     }
 }
@@ -1381,13 +1385,17 @@ void DetectarColisionZonaFinal(Jugador *jugador){
                 victoria++;
             }
         }
-        printf("VICTORIA? %d\n",victoria);
 
         if(victoria == maxRanasFinales){
             printf("VICTORIA | AVANZANDO NIVEL");
             (*jugador).puntuacion += 1000;
-            // TO_DO
-            // AvanzarNivel();
+            if((*jugador).nivelActual >= 5){
+                (*jugador).nivelActual = 2;
+            }else{
+                (*jugador).nivelActual += 1;
+            }
+            
+            InicializarNivel();
         }
     }
 }
