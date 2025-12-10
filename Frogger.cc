@@ -250,7 +250,7 @@ Jugador jugadores[maxJugadores];
 
 //-- Obstáculos
 const int filasCarretera = 5;
-const int maxCamiones = 8, maxCochesBlancos = 4, maxCochesAmarillos = 4;
+const int maxCamiones = 8, maxCochesBlancos = 4, maxCochesAmarillos = 5;
 const int maxCochesRosas = 5, maxTractores = 4;
 Vehiculo camiones[maxCamiones], cochesBlancos[maxCochesBlancos], cochesAmarillos[maxCochesAmarillos]; 
 Vehiculo cochesRosas[maxCochesRosas], tractores[maxTractores];
@@ -792,7 +792,9 @@ void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float
 
         tortugas[i].animSumergir.duracion = 1500;
         tortugas[i].animSumergir.temporizador = 0;
-        tortugas[i].animSumergir.velocidad = tortugas[i].animSumergir.duracion/tortugaSpriteSheet.indicesAnim;
+        // Dividimos la velocidad de la animacion/velocidad del parametro para adaptar la velocidad de sumersion a la velocidad de movimiento
+        // Al dividirlo de esta manera, hacemos que contra mas lenta sea la tortuga, mas lento se sumergirá y contra mas rápida, mas rápido se sumergirá
+        tortugas[i].animSumergir.velocidad = (tortugas[i].animSumergir.duracion/tortugaSpriteSheet.indicesAnim)/velocidad;
 
         if(alternator && longitud > 0 && CabeGrupoObstaculos(contador,i,longitud)){
             //Inicializar grupo
@@ -876,28 +878,49 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
 
 // Instancia los valores de la fila correspondiente
 void InicializarFilaRio(FilaRio filaRio){
+    // En el nivel base, se mantiene predefinido para asegurar su funcionamiento a modo de tutorial
+    // A partir del nivel 2, se adapta la cantidad de elementos (aumentando el margen) y la velocidad al nivelActual 
+
+    // Hay calculos hechos a mano obtenidos a base de probar para comprobar si era jugable con estos parametros
+
     switch (filaRio){
         case FILA_RIO_5:
             InicializarZonasFinales(filaRio);
             InicializarRanasFinales(filaRio);
         break;
         case FILA_RIO_4:
-            InicializarFilaTroncodrilos(troncos_3, 4, 2, 2, filaRio);
+            if(jugadores[jugadorActual].nivelActual <= 1){
+                InicializarFilaTroncodrilos(troncos_3, 4, 1, 1, filaRio);
+            }else{
+                InicializarFilaTroncodrilos(troncos_3, 4, jugadores[jugadorActual].nivelActual, jugadores[jugadorActual].nivelActual/2.0f, filaRio);
+            }
         break;
         case FILA_RIO_3:
-            InicializarFilaTortugas(tortugas_2, 2, 2, 1, filaRio);
+            if(jugadores[jugadorActual].nivelActual <= 1){
+                InicializarFilaTortugas(tortugas_2, 2, 2, 1.25, filaRio);
+            }else{
+                InicializarFilaTortugas(tortugas_2, 2, 2+(jugadores[jugadorActual].nivelActual), 1.25*(jugadores[jugadorActual].nivelActual/3.0f), filaRio);
+            }
         break;
         case FILA_RIO_2:
-            InicializarFilaTroncodrilos(troncos_2, 5, 2, 2, filaRio);
+            if(jugadores[jugadorActual].nivelActual <= 1){
+                InicializarFilaTroncodrilos(troncos_2, 5, 2, 0.5, filaRio);
+            }else{
+                InicializarFilaTroncodrilos(troncos_2, 5, 2+(jugadores[jugadorActual].nivelActual), 0.5*(jugadores[jugadorActual].nivelActual/2.0f), filaRio);
+            }
         break;
         case FILA_RIO_1:
-            InicializarFilaTroncodrilos(troncos_1, 3, 2, 2, filaRio);
+            if(jugadores[jugadorActual].nivelActual <= 1){
+                InicializarFilaTroncodrilos(troncos_1, 3, 2, 1.5, filaRio);
+            }else{
+                InicializarFilaTroncodrilos(troncos_1, 3, 2+(jugadores[jugadorActual].nivelActual), 1.5*(jugadores[jugadorActual].nivelActual/2.5f), filaRio);
+            }
         break;
         case FILA_RIO_0:
             if(jugadores[jugadorActual].nivelActual <= 1){
-                InicializarFilaTortugas(tortugas_1, 3, 1, 1.5, filaRio);
+                InicializarFilaTortugas(tortugas_1, 3, 1, 0.75, filaRio);
             }else{
-                InicializarFilaTortugas(tortugas_1, 3, 3, 1, filaRio);
+                InicializarFilaTortugas(tortugas_1, 3, jugadores[jugadorActual].nivelActual, 0.75*(jugadores[jugadorActual].nivelActual/2.5f), filaRio);
             }
         break;
     }
@@ -959,21 +982,46 @@ void InicializarVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         // InicializarCochesAmarillos
         if(i < maxCochesAmarillos){
+            //Por cada nivel, el margen disminuye en 0'5. 
+            //Empezando en 4 en el nivel 1 y terminando en 2 en el nivel 5 (estos numeros multiplicados por el ancho del sprite)
+            // printf("%f\n",(4-(1+(0.5*(jugadores[jugadorActual].nivelActual-1)))));
             InicializarVehiculo(
-                &cochesAmarillos[i],
-                COCHE_AMARILLO,
-                IZQUIERDA,
+                &cochesAmarillos[i], COCHE_AMARILLO, IZQUIERDA,
                 // Fila 3 empezando desde abajo
                 3,
                 // Si es el primero, aparece en el borde, si no detras del ultimo + el margen que se le asigne
                 i == 0 ?  
-                0: 
-                cochesAmarillos[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
+                0 : cochesAmarillos[i-1].sprite.collider.P1.x+(vehiculosSpriteSheet.spriteWidth*(4-(1+(0.5*(jugadores[jugadorActual].nivelActual-1))))), 
                 //Velocidad
-                1,
+                (0.5+(jugadores[jugadorActual].nivelActual/10.0f)),
                 // Si es el primero no se le asigna margen.
-                i == 0 ? 0 : 2
+                i == 0 ? 
+                0 : 2
             );
+
+            // Dependiendo del nivel actual, se generaran activaran una cantidad de coches amarillos
+            if(jugadores[jugadorActual].nivelActual <= 1 ){
+                if(i > 2){
+                    cochesAmarillos[i].sprite.isActive = false;
+                    cochesAmarillos[i].sprite.isVisible = false;
+                }else{
+                    cochesAmarillos[i].sprite.isActive = true;
+                    cochesAmarillos[i].sprite.isVisible = true;
+                }
+            }else{
+                if(jugadores[jugadorActual].nivelActual < 5 ){
+                    if(i > 3){
+                        cochesAmarillos[i].sprite.isActive = false;
+                        cochesAmarillos[i].sprite.isVisible = false;
+                    }else{
+                        cochesAmarillos[i].sprite.isActive = true;
+                        cochesAmarillos[i].sprite.isVisible = true;
+                    }
+                }else{
+                    cochesAmarillos[i].sprite.isActive = true;
+                    cochesAmarillos[i].sprite.isVisible = true;
+                }
+            }
         }
 
         // InicializarTractores
@@ -1565,7 +1613,7 @@ void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float ve
 //Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
 void ComprobarSumersionTortuga(Tortuga *tortuga){
     int preSumersionCoord = (tortugaSpriteSheet.coordsAnim/2)-2;
-    int postSumersionCoord = tortugaSpriteSheet.coordsAnim/2;
+    int penUltimaCoord = tortugaSpriteSheet.coordsAnim-(2*2);
     int ultimaCoord = tortugaSpriteSheet.coordsAnim-2;
 
     // Si está en indice 0, cambia el sentido de la animacion y no comprueba nada mas
@@ -1576,21 +1624,20 @@ void ComprobarSumersionTortuga(Tortuga *tortuga){
         if((*tortuga).sprite.indiceAnimacion == preSumersionCoord){
             // Si la tortuga no se puede hundir, entonces simplemente cambia el sentido de  la animacion
             if(!(*tortuga).isSumergible){
-                    (*tortuga).isSumergiendo = false;
-            }else {
-            // Si es una tortuga de las que pueden hundirse y está saliendo del agua, entonces activamos la colision para que sea tangible
-                if(!(*tortuga).isSumergiendo){
-                    (*tortuga).sprite.isActive = true;
-                }
+                (*tortuga).isSumergiendo = false;
             }
         }else {
-            //Si está en el frame justo despúes de hundirse y se está sumergiendo, desactivamos su tangibilidad
-            if((*tortuga).isSumergiendo && (*tortuga).sprite.indiceAnimacion == postSumersionCoord){
+            //Si está en el frame justo antes de terminar de hundirse y se está sumergiendo, le quitamos la tangibilidad 
+            // para que en el proximo frame (completamente hundida) no puedas usarla de plataforma
+            if((*tortuga).sprite.indiceAnimacion == penUltimaCoord && (*tortuga).isSumergiendo){
                 (*tortuga).sprite.isActive = false;
             }else{
-                //Por último, si está en el último indice de animación. Cambia el sentido de la animacion para que vuelva a emerger
+                //Por último, si está en el último indice de animación. 
+                //Cambia el sentido de la animacion para que vuelva a emerger y activa su tangibilidad para el proximo frame
                 if((*tortuga).sprite.indiceAnimacion == ultimaCoord){
+                    // Si se está sumergiendo, le quitamos tangibilidad
                     (*tortuga).isSumergiendo = false;
+                    (*tortuga).sprite.isActive = true;
                 }
             }
         }
