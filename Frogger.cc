@@ -119,9 +119,11 @@ struct Cronometro{
     int contador = 60, tiempoRestante = 60;
 
     // BarraParada indica si la barra debe continuar avanzando o no
+    bool isBarraParada = false;
+
     // TiempoVisible indica si debe mostrarse el tiempo restante con el
     // que se ha calculado la puntuacion extra
-    bool isBarraParada = false, isTiempoVisible = false;
+    bool isTiempoVisible = false;
 };
 
 struct Rana{
@@ -968,7 +970,7 @@ void InicializarFilaRio(FilaRio filaRio){
             if(jugadores[jugadorActual].dificultadActual <= 1){
                 InicializarFilaTroncodrilos(troncos_3, 4, 1, 1, filaRio);
             }else{
-                InicializarFilaTroncodrilos(troncos_3, 4, jugadores[jugadorActual].dificultadActual, jugadores[jugadorActual].dificultadActual/2.0f, filaRio);
+                InicializarFilaTroncodrilos(troncos_3, 4, jugadores[jugadorActual].dificultadActual*1.5, jugadores[jugadorActual].dificultadActual/2.0f, filaRio);
             }
         break;
         case FILA_RIO_3:
@@ -1066,32 +1068,35 @@ void InicializarVehiculos(){
                 &cochesAmarillos[i], COCHE_AMARILLO, IZQUIERDA,
                 // Fila 3 empezando desde abajo
                 3,
-                // Si es el primero, aparece en el borde, si no detras del ultimo + el margen que se le asigne, calculando el margen por nivel
-                // En caso de los coches amarillos, el margen será de el tamaño del sprite un máximo de 4 veces en el nivel 1 y un mínimo de 2 en el nivel 5,
-                // Encogiendo 0.5 veces el tamaño del sprite por nivel 
+                // Si es el primero, aparece en el borde, si no detras del ultimo + el margen que se le asigne.
                 i == 0 ?  
-                0 : cochesAmarillos[i-1].sprite.collider.P1.x+(vehiculosSpriteSheet.spriteWidth*(4-(1+(0.5*(jugadores[jugadorActual].dificultadActual-1))))), 
+                0 : cochesAmarillos[i-1].sprite.collider.P1.x + vehiculosSpriteSheet.spriteWidth, 
                 //Velocidad
                 (0.5+(jugadores[jugadorActual].dificultadActual/10.0f)),
                 // Si es el primero no se le asigna margen.
                 i == 0 ? 
-                0 : 2
+                // El margen se calcula por nivel de dificultad
+                // En caso de los coches amarillos, el margen será de un máximo de 4 veces en el nivel 1 y un mínimo de 2 en el nivel 5,
+                // Encogiendo 0.5 veces el tamaño del margen (margen por defecto = SPRITE_SIZE) por nivel 
+                0 : (4-((0.5*(jugadores[jugadorActual].dificultadActual-1))))
             );
 
-            // Dependiendo del nivel actual, se activaran una cantidad de coches amarillos
+            // Dependiendo de la dificultad actual, se activaran una cantidad de coches amarillos
             if(jugadores[jugadorActual].dificultadActual <= 1 ){
-                if(i > 2){
+                // Dificultad 1
+                // 3 coches activos
+                if(i >= 3){
                     cochesAmarillos[i].sprite.isActive = false;
                     cochesAmarillos[i].sprite.isVisible = false;
                 }else{
-                    // 3 coches activos
                     cochesAmarillos[i].sprite.isActive = true;
                     cochesAmarillos[i].sprite.isVisible = true;
                 }
             }else{
-                if(jugadores[jugadorActual].dificultadActual < 5 ){
-                    if(i > 3){
-                        // 4 coches activos
+                // Dificultad 2-4
+                if(jugadores[jugadorActual].dificultadActual <= 4 ){
+                    // 4 coches activos
+                    if(i >= 4){
                         cochesAmarillos[i].sprite.isActive = false;
                         cochesAmarillos[i].sprite.isVisible = false;
                     }else{
@@ -1099,6 +1104,7 @@ void InicializarVehiculos(){
                         cochesAmarillos[i].sprite.isVisible = true;
                     }
                 }else{
+                    // Dificultad 5
                     // Todos Activos
                     cochesAmarillos[i].sprite.isActive = true;
                     cochesAmarillos[i].sprite.isVisible = true;
@@ -1115,15 +1121,18 @@ void InicializarVehiculos(){
                 4,
                 i == 0 ? 
                 VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
-                tractores[i-1].sprite.collider.P1.x-(vehiculosSpriteSheet.spriteWidth * (i == 2 ? 2.5 : 2)),
+                tractores[i-1].sprite.collider.P1.x - vehiculosSpriteSheet.spriteWidth,
+                // Mantienen la velocidad en todos los niveles
                 1,
-                i == 0 ? 0 : 2
+                // El margen siempre será el mismo excepto para el tercer tractor que está un poco mas separado
+                i == 0 ? 0 : (i == 2 ? 2.5 : 2)
             );
 
-            // Dependiendo del nivel actual, se activaran una cantidad de tractores
+            // Dependiendo de la dificultad actual, se activaran una cantidad de tractores
+            //Dificultad 1
             if(jugadores[jugadorActual].dificultadActual <= 1 ){
                 // 3 tractores activos
-                if(i > 2){
+                if(i >= 3){
                     tractores[i].sprite.isActive = false;
                     tractores[i].sprite.isVisible = false;
                 }else{
@@ -1131,6 +1140,7 @@ void InicializarVehiculos(){
                     tractores[i].sprite.isVisible = true;
                 }
             }else{
+                // Resto de dificultades
                 // Todos Activos
                 tractores[i].sprite.isActive = true;
                 tractores[i].sprite.isVisible = true;
@@ -1144,12 +1154,48 @@ void InicializarVehiculos(){
                 COCHE_ROSA,
                 IZQUIERDA,
                 5,
+                // A diferencia del resto, inicia con un espacio de separacion en lugar de pegado al borde para que
+                // en el nivel de dificultad 5 no vaya exactamente igual que la fila de coches amarillos, si no que aparezca una posicion por detrás
+                // al ir a la misma velocidad
                 i == 0 ?  
-                0: 
-                cochesRosas[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
+                vehiculosSpriteSheet.spriteWidth: 
+                cochesRosas[i-1].sprite.collider.P1.x + vehiculosSpriteSheet.spriteWidth, 
+                // Velocidad
+                // A diferencia del resto, se va reduciendo hasta acabar teniendo en dificultad 5 la misma velocidad que el coche amarillo
+                (1-(jugadores[jugadorActual].dificultadActual)/10),
+                // Separacion entre coches de 3 en dificultades 1, 2 y 4. De 2 en dificultades 3 y 5
+                i == 0 ? 0 : (jugadores[jugadorActual].dificultadActual <= 2 || jugadores[jugadorActual].dificultadActual == 4 ? 3 : 2)
             );
+
+            // Dependiendo de la dificultad actual, se activaran una cantidad de coches rosas (En este caso igual que los coches amarillos)
+            if(jugadores[jugadorActual].dificultadActual <= 1 ){
+                // Dificultad 1
+                // 3 coches activos
+                if(i >= 3){
+                    cochesRosas[i].sprite.isActive = false;
+                    cochesRosas[i].sprite.isVisible = false;
+                }else{
+                    cochesRosas[i].sprite.isActive = true;
+                    cochesRosas[i].sprite.isVisible = true;
+                }
+            }else{
+                // Dificultad 2-4
+                if(jugadores[jugadorActual].dificultadActual <= 4 ){
+                    // 4 coches activos
+                    if(i >= 4){
+                        cochesRosas[i].sprite.isActive = false;
+                        cochesRosas[i].sprite.isVisible = false;
+                    }else{
+                        cochesRosas[i].sprite.isActive = true;
+                        cochesRosas[i].sprite.isVisible = true;
+                    }
+                }else{
+                    // Dificultad 5
+                    // Todos Activos
+                    cochesRosas[i].sprite.isActive = true;
+                    cochesRosas[i].sprite.isVisible = true;
+                }
+            }
         }
         
         // InicializarCochesBlancos
@@ -1162,25 +1208,89 @@ void InicializarVehiculos(){
                 i == 0 ? 
                 VENTANA_X-vehiculosSpriteSheet.spriteWidth : 
                 cochesBlancos[i-1].sprite.collider.P1.x-vehiculosSpriteSheet.spriteWidth, 
-                1,
-                i == 0 ? 0 : 2
+                //Velocidad aumenta en 1 por cada dificultad
+                0.5 + jugadores[jugadorActual].dificultadActual,
+                i == 0 ?
+                // El margen se calcula por nivel de dificultad
+                // En caso de los coches blancos, el margen será de un máximo de 4'5 veces en el nivel 1 y un mínimo de 2'5 en el nivel 5,
+                // Encogiendo 0.5 veces el tamaño del margen (margen por defecto = SPRITE_SIZE) por nivel 
+                0 : (4.5-(0.5*(jugadores[jugadorActual].dificultadActual-1)))
             );
+
+            // Dependiendo de la dificultad actual, se activaran una cantidad de coches blancos
+            if(jugadores[jugadorActual].dificultadActual <= 2 ){
+                // Dificultad 1-2
+                // 1 coche activo
+                if(i >= 1){
+                    cochesBlancos[i].sprite.isActive = false;
+                    cochesBlancos[i].sprite.isVisible = false;
+                }else{
+                    cochesBlancos[i].sprite.isActive = true;
+                    cochesBlancos[i].sprite.isVisible = true;
+                }
+            }else{
+                // Dificultad 3-5
+                if(i >= jugadores[jugadorActual].dificultadActual-1){
+                    // Coches activos == jugadores[jugadorActual].dificultadActual-1 (dificultad 3, 2 activos por ejemplo)
+                    cochesBlancos[i].sprite.isActive = false;
+                    cochesBlancos[i].sprite.isVisible = false;
+                }else{
+                    cochesBlancos[i].sprite.isActive = true;
+                    cochesBlancos[i].sprite.isVisible = true;
+                }
+            }
         }
 
         // InicializarCamiones
         InicializarVehiculo(
             &camiones[i],
-            i%2 == 0 ? CAMION_FRONT : CAMION_BACK,
+            i % 2 == 0 ? CAMION_FRONT : CAMION_BACK,
             IZQUIERDA,
             7,
             i == 0 ?  
             0: 
             camiones[i-1].sprite.collider.P1.x+vehiculosSpriteSheet.spriteWidth, 
-            1,
+            // A partir de la dificultad 4, reducen un poco la velocidad
+            jugadores[jugadorActual].dificultadActual <= 3 ? 1 : 0.75,
             // Si es el primero no se le asigna margen.
-            // Si no es el primero, tampoco se le asigna margen si se quiere instanciar la parte trasera del camion
-            i == 0 ? 0 : i%2==0 ? 2 : 0
+            // Si no es el primero, tampoco se le asigna margen si se quiere instanciar la parte trasera del camion (Posicion impar)
+            // El margen entre camiones cambiará en funcion de la dificultad. Será de:
+            // Dificultad 1-2 -> 3.5
+            // Dificultad 3-4 -> 2.5
+            // Dificultad 5   -> 2
+            i == 0 ? 0 : i%2 != 0 ? 0 : 
+            jugadores[jugadorActual].dificultadActual <= 2 ? 3.5 : jugadores[jugadorActual].dificultadActual <= 4 ? 2.5 : 2
         );
+
+        // Dependiendo de la dificultad actual, se activaran una cantidad de camiones
+        if(jugadores[jugadorActual].dificultadActual <= 1 ){
+            // Dificultad 1
+            // 2 camiones activos (Se multiplica por 2 al ocupar 2 espacios cada camion)
+            if(i >= 4){
+                camiones[i].sprite.isActive = false;
+                camiones[i].sprite.isVisible = false;
+            }else{
+                camiones[i].sprite.isActive = true;
+                camiones[i].sprite.isVisible = true;
+            }
+        }else{
+            // Dificultad 2-4
+            if(jugadores[jugadorActual].dificultadActual <= 4 ){
+                // 3 camiones activos
+                if(i >= 6){
+                    camiones[i].sprite.isActive = false;
+                    camiones[i].sprite.isVisible = false;
+                }else{
+                    camiones[i].sprite.isActive = true;
+                    camiones[i].sprite.isVisible = true;
+                }
+            }else{
+                // Dificultad 5
+                // Todos Activos
+                camiones[i].sprite.isActive = true;
+                camiones[i].sprite.isVisible = true;
+            }
+        }
     }
 }
 
@@ -1191,9 +1301,7 @@ void InicializarCronometro(){
     cronometro.animCronometro.velocidad = 500;
 
     cronometro.contador = 60;
-    cronometro.tiempoRestante = 60;
     cronometro.isBarraParada = false;
-    cronometro.isTiempoVisible = false;
 }
 
 // Instancia los valores por defecto del jugador
@@ -1546,6 +1654,7 @@ bool DetectarColisionJugador(Collider object_C) {
 //      Zona Ocupada -> Mismo efecto que chocar con la pared
 //      Zona Desocupada -> Suma de puntuacion y comprobar si se ha superado el nivel, ejecutando unos ventos u otros
 void DetectarColisionJugadorZonaFinal(){
+    // Almacena el total de zonas ocupadas. Si todas están ocupadas, entonces se avanza de nivel
     int victoria = 0;
     if(jugadores[jugadorActual].ranaJugador.isJumping){
         for(int i = 0; i < maxZonasFinales; i++){
@@ -1600,7 +1709,7 @@ void DetectarColisionJugadorZonaFinal(){
             if(victoria == maxRanasFinales){
                 printf("VICTORIA | AVANZANDO NIVEL");
                 
-                //TO_DO Sustituir por IniciarAnimacionVictoria
+                //TO_DO Sustituir por IniciarAnimacionAvanceNivel
                 AvanzarNivel();
             }
         }
@@ -1769,6 +1878,7 @@ void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float ve
     }
 }
 
+
 //Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
 void ComprobarSumersionTortuga(Tortuga *tortuga){
     int preSumersionCoord = (tortugaSpriteSheet.coordsAnim/2)-2;
@@ -1803,42 +1913,89 @@ void ComprobarSumersionTortuga(Tortuga *tortuga){
     }
 }
 
-// Actualiza el estado de un obstaculo (En funcion del tipo de obstaculo puede variar el comportamiento)
-void ActualizarEstadoObstaculo(Tortuga *obstaculo){
-    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
+// Actualiza el estado de una tortuga 
+void ActualizarEstadoTortuga(Tortuga *tortuga){
+    ActualizarMovimientoObstaculo(&(*tortuga).sprite,(*tortuga).direccion,(*tortuga).velocidadMovimiento);
     
     //Animacion de la tortuga
-    if(HacerCadaX(&(*obstaculo).animSumergir.temporizador,(*obstaculo).animSumergir.velocidad) && (*obstaculo).sprite.isVisible){
-        ComprobarSumersionTortuga(&(*obstaculo));
+    if(HacerCadaX(&(*tortuga).animSumergir.temporizador,(*tortuga).animSumergir.velocidad) && (*tortuga).sprite.isVisible){
+        ComprobarSumersionTortuga(&(*tortuga));
         //En funcion de si la tortuga se está sumergiendo o no, entonces avanza o retrocede el frame de animacion
-        if((*obstaculo).isSumergiendo){
-            AvanzarSpriteAnimado(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+        if((*tortuga).isSumergiendo){
+            AvanzarSpriteAnimado(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*tortuga).sprite);
         }else{
-            RetrocederSpriteAnimado(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+            RetrocederSpriteAnimado(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*tortuga).sprite);
         }
     }
-    ActualizarSprite(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*obstaculo).sprite);
+    
+    ActualizarSprite(tortugaSpriteSheet,tortugaSpriteSheet_Coords,&(*tortuga).sprite);
 
 }
 
-void ActualizarEstadoObstaculo(Troncodrilo *obstaculo){
-    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
-    ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&(*obstaculo).sprite);
-}
-void ActualizarEstadoObstaculo(Vehiculo *obstaculo){
-    ActualizarMovimientoObstaculo(&(*obstaculo).sprite,(*obstaculo).direccion,(*obstaculo).velocidadMovimiento);
-    ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*obstaculo).sprite);
-}
-
-//Recorre todos los obstaculos de la fila de un rio y actualiza sus estados (En funcion del tipo de obstaculo puede variar el comportamiento)
-void ActualizarEstadoFilaRio(Tortuga array[]){
+//Recorre todas las tortugas la fila de un rio y actualiza sus estados
+// array[] -> Fila de tortugas
+void ActualizarEstadoFilaTortugas(Tortuga array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
-        ActualizarEstadoObstaculo(&array[i]);
+        ActualizarEstadoTortuga(&array[i]);
     }
 }
-void ActualizarEstadoFilaRio(Troncodrilo array[]){
+
+// Actualiza el estado de movimiento y sprite de un troncodrilo
+void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo){
+    ActualizarMovimientoObstaculo(&(*troncodrilo).sprite,(*troncodrilo).direccion,(*troncodrilo).velocidadMovimiento);
+    if((*troncodrilo).isTronco){
+        ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&(*troncodrilo).sprite);
+    }else{
+        ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&(*troncodrilo).sprite);
+    }
+}
+
+// Actualiza el estado de un troncodrilo dado su indice para comprobar conversion de cocodrilo
+// DEBE USARSE CON INDICES QUE SE SABE QUE FORMAN PARTE DE UN TRONCODRILO VISIBLE
+void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo, int indice){
+    //En caso
+    int troncoProb;
+    switch(jugadores[jugadorActual].dificultadActual){
+        case 1:
+            troncoProb = 100;
+        break;
+        case 2:
+            troncoProb = 50;
+        break;
+        case 3:
+        case 4:
+            troncoProb = 25;
+        break;
+        default:
+            troncoProb = 0;
+        break;
+    }
+
+    if (ComprobarSalidaVentanaSprite(&(*troncodrilo).sprite, (*troncodrilo).direccion)){
+        if(indice == 0){
+            (*troncodrilo).isTronco = BoolPorProbabilidad(troncoProb);
+        }
+
+        
+    }
+
+    ActualizarEstadoTroncodrilo(&(*troncodrilo));
+}
+
+//Recorre todos los troncodrilos de la fila de un rio y actualiza sus estados
+// array[] -> Fila de troncodrilos
+// posibilidadCocodrilos -> Indica si el primero tronco, puede convertirse en determinadas circunstancias en un cocodrilo (Por defecto no puede)
+void ActualizarEstadoFilaTroncodrilos(Troncodrilo array[], bool posibilidadCocodrilos = false){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
-        ActualizarEstadoObstaculo(&array[i]);
+        if(posibilidadCocodrilos && i < 4){
+            // 4 es el tamaño de grupo en la fila en la que pueden aparecer cocodrilos. 
+            // Por lo tanto, dado que técnicamente solo el primero del array puede convertirse en cocodrilo
+            // si el indice es mayor al número del grupo (Sprites del primero troncodrilo 0-3), 
+            // se actualizará de forma normal
+            ActualizarEstadoTroncodrilo(&array[i], i);
+        }else{
+            ActualizarEstadoTroncodrilo(&array[i]);
+        }
     }
 }
 
@@ -1917,19 +2074,19 @@ void ActualizarEstadoRio(){
     for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
         switch ((FilaRio) i){
             case FILA_RIO_0:
-                ActualizarEstadoFilaRio(tortugas_1);
+                ActualizarEstadoFilaTortugas(tortugas_1);
             break;
             case FILA_RIO_3:
-                ActualizarEstadoFilaRio(tortugas_2);
+                ActualizarEstadoFilaTortugas(tortugas_2);
             break;
             case FILA_RIO_1:
-                ActualizarEstadoFilaRio(troncos_1);
+                ActualizarEstadoFilaTroncodrilos(troncos_1);
             break;
             case FILA_RIO_2:
-                ActualizarEstadoFilaRio(troncos_2);
+                ActualizarEstadoFilaTroncodrilos(troncos_2);
             break;
             case FILA_RIO_4:
-                ActualizarEstadoFilaRio(troncos_3);
+                ActualizarEstadoFilaTroncodrilos(troncos_3,true);
             break;
             case FILA_RIO_5:
                 ActualizarEstadoMoscaCroc();
@@ -1938,22 +2095,27 @@ void ActualizarEstadoRio(){
     }
 }
 
+void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
+    ActualizarMovimientoObstaculo(&(*vehiculo).sprite,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
+    ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
+}
+
 void ActualizarEstadoVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
-            ActualizarEstadoObstaculo(&cochesAmarillos[i]);
+            ActualizarEstadoVehiculo(&cochesAmarillos[i]);
         }
 
         if(i < maxTractores){
-            ActualizarEstadoObstaculo(&tractores[i]);
+            ActualizarEstadoVehiculo(&tractores[i]);
         }
 
         if(i < maxCochesRosas){
-            ActualizarEstadoObstaculo(&cochesRosas[i]);
+            ActualizarEstadoVehiculo(&cochesRosas[i]);
         }
         
         if(i < maxCochesBlancos){
-            ActualizarEstadoObstaculo(&cochesBlancos[i]);
+            ActualizarEstadoVehiculo(&cochesBlancos[i]);
         }
 
         // Actualiza el estado de los camiones
@@ -2717,22 +2879,25 @@ void DibujarNiveles(){
 void DibujarBarraCronometro(){
     if(cronometro.isBarraParada){
         // A partir de los 5 segundos, se empiza a pintar la barra en rojo
-        if(cronometro.tiempoRestante < 10){
-            DrawRect({
-                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante+1)*6)),VENTANA_Y-FONT_SIZE},
-                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
-                },
-                {200,0,0}
-            );
-        }else{
-            DrawRect({
-                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante+1)*6)),VENTANA_Y-FONT_SIZE},
-                    // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
-                    {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
-                },
-                {0,200,0}
-            );
+        if(cronometro.tiempoRestante > 0){
+            if(cronometro.tiempoRestante < 10){
+                DrawRect({
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante)*6)),VENTANA_Y-FONT_SIZE},
+                        {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                    },
+                    {200,0,0}
+                );
+            }else{
+                DrawRect({
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante)*6)),VENTANA_Y-FONT_SIZE},
+                        // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
+                        {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                    },
+                    {0,200,0}
+                );
+            }
         }
+        
     }else{
         if(HacerDuranteX(&cronometro.animCronometro.temporizador, cronometro.animCronometro.duracion)){
             // El tiempo limite del contador es de 30 segundos, pero para obtener la puntuación se 
@@ -2744,7 +2909,7 @@ void DibujarBarraCronometro(){
             // A partir de los 5 segundos, se empiza a pintar la barra en rojo
             if(cronometro.contador < 10){
                 DrawRect({
-                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador)*6)),VENTANA_Y-FONT_SIZE},
                         {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
                     },
                     {200,0,0}
@@ -2757,9 +2922,8 @@ void DibujarBarraCronometro(){
                         //
                         //  Por otro lado:
                         //  El valor del contadorCronometro del cronometro para que solo se actualice cada medio segundo al ser un entero.
-                        //  +1 (para evitar visualizar la barra vacia con el juego activo) 
                         //  *6 para que cada avance de la barra sea de 6px. 61 avances (por el +1 anterior) multiplicado de 6 hacen una cantidad razonable máxima de 366px
-                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador)*6)),VENTANA_Y-FONT_SIZE},
                         // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
                         {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
                     },
