@@ -83,8 +83,9 @@ struct SpriteSheet{
     esat::SpriteHandle spriteSheet;
     //Filas y columnas del SpriteSheet
     unsigned char tiposAnim, indicesAnim;
-    //Total Coordenadas X,Y de acceso al sprite deseado
+    //Total Coordenadas X,Y de acceso al sprite deseado. Sin contar todos los tipos de animacion
     unsigned char coordsAnim;
+    //Total Coordenadas X,Y de acceso al sprite deseado. Contando todos los tipos de animacion
     unsigned char totalCoordsAnim;
     //Tamaño de los sprites
     int spriteWidth,spriteHeight;
@@ -178,6 +179,22 @@ struct MoscaCroc{
     EstadoMoscaCroc estado = MOSCA;
 };
 
+struct Serpiente{
+    Direccion direccion;
+	Sprite sprite;
+    Animacion animMovimiento;
+    
+    // True indica que la animación avanza. False indica que retrocede
+    bool direccionAnimacion;
+};
+
+struct Nutria{
+    Direccion direccion;
+	Sprite sprite;
+    Animacion animMovimiento;
+    Sprite colisionAtaque;
+};
+
 /* FIN STRUCTS */
 
 /* GLOBALES */
@@ -234,6 +251,12 @@ int puntosSpriteSheet_Coords[4];
 SpriteSheet moscaCrocSpriteSheet;
 int moscaCrocSpriteSheet_Coords[8];
 
+SpriteSheet serpienteSpriteSheet;
+int serpienteSpriteSheet_Coords[6];
+
+SpriteSheet nutriaSpriteSheet;
+int nutriaSpriteSheet_Coords[4];
+
 //-- Sprites | Declaración de los handles cuyos sprites: 
 //  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
 //  -No necesitan collider
@@ -288,9 +311,14 @@ Sprite zonasFinales[maxZonasFinales];
 const int maxRanasFinales = 5;
 Sprite ranasFinales[maxRanasFinales];
 
-// Solo permite un evento de zona final activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
-
+// Animales
+// Solo permite un moscaCroc activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
 MoscaCroc moscaCroc;
+
+const int maxSerpientes = 2;
+Serpiente serpientes[maxSerpientes];
+
+Nutria nutria;
 
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
@@ -557,6 +585,24 @@ void InicializarSpriteSheets(){
         &moscaCrocSpriteSheet,
         moscaCrocSpriteSheet_Coords,
         2,
+        2
+    );
+
+    // Inicializa el SpriteSheet de la serpiente
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/SerpienteSpriteSheet.png",
+        &serpienteSpriteSheet,
+        serpienteSpriteSheet_Coords,
+        1,
+        3
+    );
+
+    // Inicializa el SpriteSheet de la nutria
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/NutriaSpriteSheet.png",
+        &nutriaSpriteSheet,
+        nutriaSpriteSheet_Coords,
+        1,
         2
     );
 }
@@ -826,6 +872,83 @@ void InicializarMoscaCroc(){
     ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
 }
 
+// Inicializar valores por defecto de las serpientes
+void InicializarSerpientes(){
+    for(int i = 0; i < maxSerpientes; i++){
+        serpientes[i].direccion = DERECHA;
+        serpientes[i].direccionAnimacion = true;
+
+        serpientes[i].animMovimiento.duracion = 150;
+        serpientes[i].animMovimiento.velocidad = 1.5;
+        serpientes[i].animMovimiento.temporizador = last_time;
+
+        //Inicializa sprite
+        //TO_DO, CAMBIAR POR SPAWN
+        serpientes[i].sprite.collider = {
+            {0.0f, 0.0f},
+            {(float)serpienteSpriteSheet.spriteWidth, (float)serpienteSpriteSheet.spriteHeight}
+        };
+
+        serpientes[i].sprite.indiceAnimacion = 0;
+        serpientes[i].sprite.tipoAnimacion = 0;
+
+        //En dificultades por debajo de 2, no se activan
+        if(jugadores[jugadorActual].dificultadActual <= 2){
+            serpientes[i].sprite.isActive = false;
+            serpientes[i].sprite.isVisible = false;
+        }else{
+            //En la máxima dificultad, se activan si o si
+            if(jugadores[jugadorActual].dificultadActual >= 5){
+                serpientes[i].sprite.isActive = true;
+                serpientes[i].sprite.isVisible = true;
+            }else{
+                //En el resto de dificultades, solo aparece una, por lo tanto, si es indice 0 se activará
+                serpientes[i].sprite.isActive = (i == 0);
+                serpientes[i].sprite.isVisible = (i == 0);
+            }
+        }
+
+        ActualizarSprite(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
+    }
+}
+
+// Inicializar valores por defecto de la nutria
+void InicializarNutria(){
+    nutria.direccion = DERECHA;
+
+    nutria.animMovimiento.duracion = 150;
+    nutria.animMovimiento.velocidad = 1.5;
+    nutria.animMovimiento.temporizador = last_time;
+
+    //Inicializa sprite
+    //TO_DO, CAMBIAR POR SPAWN
+    nutria.sprite.collider = {
+        {(float)(VENTANA_X-nutriaSpriteSheet.spriteWidth*2), 0.0f},
+        {(float)VENTANA_X-nutriaSpriteSheet.spriteWidth, (float)nutriaSpriteSheet.spriteHeight}
+    };
+    nutria.colisionAtaque.collider = {
+        {(float)(VENTANA_X-nutriaSpriteSheet.spriteWidth), 0.0f},
+        {(float)VENTANA_X, (float)nutriaSpriteSheet.spriteHeight}
+    };
+
+    nutria.colisionAtaque.isActive = false;
+    nutria.colisionAtaque.isVisible = false;
+
+    nutria.sprite.indiceAnimacion = 0;
+    nutria.sprite.tipoAnimacion = 0;
+
+    //En dificultades por debajo de 2, no se activan
+    if(jugadores[jugadorActual].dificultadActual <= 2){
+        nutria.sprite.isActive = false;
+        nutria.sprite.isVisible = false;
+    }else{
+        //En el resto de dificultades si
+            nutria.sprite.isActive = true;
+            nutria.sprite.isVisible = true;
+    }
+
+    ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+}
 
 // Inicializar valores de las zonas finales donde:
 // filaRio   -> Indica la fila del rio en la que está para ubicarse en Y
@@ -989,7 +1112,6 @@ void InicializarFilaRio(FilaRio filaRio){
         case FILA_RIO_5:
             InicializarZonasFinales(filaRio);
             InicializarRanasFinales(filaRio);
-            InicializarMoscaCroc();
         break;
         case FILA_RIO_4:
             if(jugadores[jugadorActual].dificultadActual <= 1){
@@ -1379,6 +1501,11 @@ void InicializarNivel(){
     InicializarRio();
     InicializarVehiculos();
     InicializarCronometro();
+
+    InicializarMoscaCroc();
+    InicializarSerpientes();
+    InicializarNutria();
+
     SpawnJugador();
 }
 
@@ -2149,6 +2276,64 @@ void ActualizarEstadoFilaTroncodrilos(Troncodrilo array[], bool posibilidadCocod
     }
 }
 
+void ActualizarEstadoRio(){
+    for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
+        switch ((FilaRio) i){
+            case FILA_RIO_0:
+                ActualizarEstadoFilaTortugas(tortugas_1);
+            break;
+            case FILA_RIO_3:
+                ActualizarEstadoFilaTortugas(tortugas_2);
+            break;
+            case FILA_RIO_1:
+                ActualizarEstadoFilaTroncodrilos(troncos_1);
+            break;
+            case FILA_RIO_2:
+                ActualizarEstadoFilaTroncodrilos(troncos_2);
+            break;
+            case FILA_RIO_4:
+                ActualizarEstadoFilaTroncodrilos(troncos_3,true);
+            break;
+        }
+    }
+}
+
+void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
+    ActualizarMovimientoObstaculo(&(*vehiculo).sprite,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
+    ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
+}
+
+void ActualizarEstadoVehiculos(){
+    for(int i = 0; i < maxCamiones; i++){
+        if(i < maxCochesAmarillos){
+            ActualizarEstadoVehiculo(&cochesAmarillos[i]);
+        }
+
+        if(i < maxTractores){
+            ActualizarEstadoVehiculo(&tractores[i]);
+        }
+
+        if(i < maxCochesRosas){
+            ActualizarEstadoVehiculo(&cochesRosas[i]);
+        }
+        
+        if(i < maxCochesBlancos){
+            ActualizarEstadoVehiculo(&cochesBlancos[i]);
+        }
+
+        // Actualiza el estado de los camiones
+        if(i%2 != 0 && camiones[i].sprite.collider.P2.x < 0){
+            camiones[i-1].sprite.collider.P1.x = VENTANA_X;
+            camiones[i-1].sprite.collider.P2.x = VENTANA_X+vehiculosSpriteSheet.spriteWidth;
+            camiones[i].sprite.collider.P1.x = camiones[i-1].sprite.collider.P2.x;
+            camiones[i].sprite.collider.P2.x = camiones[i-1].sprite.collider.P2.x+vehiculosSpriteSheet.spriteWidth;
+        }else{
+            MoveCollider(&camiones[i].sprite.collider,camiones[i].direccion,camiones[i].velocidadMovimiento);
+        }
+        ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&camiones[i].sprite);
+    }
+}
+
 // Actualiza el estado de la Mosca bonus / cocodrilo trampa
 void ActualizarEstadoMoscaCroc(){
     int randomPosition;
@@ -2220,64 +2405,30 @@ void ActualizarEstadoMoscaCroc(){
     }
 }
 
-void ActualizarEstadoRio(){
-    for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
-        switch ((FilaRio) i){
-            case FILA_RIO_0:
-                ActualizarEstadoFilaTortugas(tortugas_1);
-            break;
-            case FILA_RIO_3:
-                ActualizarEstadoFilaTortugas(tortugas_2);
-            break;
-            case FILA_RIO_1:
-                ActualizarEstadoFilaTroncodrilos(troncos_1);
-            break;
-            case FILA_RIO_2:
-                ActualizarEstadoFilaTroncodrilos(troncos_2);
-            break;
-            case FILA_RIO_4:
-                ActualizarEstadoFilaTroncodrilos(troncos_3,true);
-            break;
-            case FILA_RIO_5:
-                ActualizarEstadoMoscaCroc();
-            break;
-        }
-    }
-}
+void ActualizarEstadoSerpientes(){
+    for (int i = 0; i < maxSerpientes; i++){
+        // printf("ACTUALIZAR ESTADO SERPIENTE %d\n",i);
+        //Animación Serpiente
+        if(serpientes[i].sprite.isVisible && HacerCadaX(&serpientes[i].animMovimiento.temporizador, serpientes[i].animMovimiento.duracion)){
 
-void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
-    ActualizarMovimientoObstaculo(&(*vehiculo).sprite,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
-    ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
-}
+            // Comprobar direccion de la animación
+            if(serpientes[i].sprite.indiceAnimacion <= 0){
+                serpientes[i].direccionAnimacion = true;
+            }else{
+                if(serpientes[i].sprite.indiceAnimacion >= serpienteSpriteSheet.coordsAnim-2){
+                    serpientes[i].direccionAnimacion = false;
+                }
+            }
 
-void ActualizarEstadoVehiculos(){
-    for(int i = 0; i < maxCamiones; i++){
-        if(i < maxCochesAmarillos){
-            ActualizarEstadoVehiculo(&cochesAmarillos[i]);
-        }
+            //Avanzar/Retroceder Sprite
+            if(serpientes[i].direccionAnimacion){
+                AvanzarSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
+            }else{
+                RetrocederSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
+            }
 
-        if(i < maxTractores){
-            ActualizarEstadoVehiculo(&tractores[i]);
+            ActualizarSprite(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
         }
-
-        if(i < maxCochesRosas){
-            ActualizarEstadoVehiculo(&cochesRosas[i]);
-        }
-        
-        if(i < maxCochesBlancos){
-            ActualizarEstadoVehiculo(&cochesBlancos[i]);
-        }
-
-        // Actualiza el estado de los camiones
-        if(i%2 != 0 && camiones[i].sprite.collider.P2.x < 0){
-            camiones[i-1].sprite.collider.P1.x = VENTANA_X;
-            camiones[i-1].sprite.collider.P2.x = VENTANA_X+vehiculosSpriteSheet.spriteWidth;
-            camiones[i].sprite.collider.P1.x = camiones[i-1].sprite.collider.P2.x;
-            camiones[i].sprite.collider.P2.x = camiones[i-1].sprite.collider.P2.x+vehiculosSpriteSheet.spriteWidth;
-        }else{
-            MoveCollider(&camiones[i].sprite.collider,camiones[i].direccion,camiones[i].velocidadMovimiento);
-        }
-        ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&camiones[i].sprite);
     }
 }
 
@@ -2518,6 +2669,10 @@ void ActualizarEstadoIntro(){
 void ActualizarEstadoJuego(){
     ActualizarEstadoRio();
     ActualizarEstadoVehiculos();
+
+    ActualizarEstadoMoscaCroc();
+    ActualizarEstadoSerpientes();
+
     ActualizarEstadoJugador();
 }
 
@@ -2955,10 +3110,6 @@ void DibujarVehiculos(){
     }
 }
 
-void DibujarMoscaCroc(){
-    DrawSprite(moscaCroc.sprite);
-}
-
 void DibujarTiempoRestante(){
     char timeDigits[maxTimeDigits];
 
@@ -2977,16 +3128,38 @@ void DibujarTiempoRestante(){
     }
 }
 
+void DibujarMoscaCroc(){
+    DrawSprite(moscaCroc.sprite);
+}
+
+void DibujarSerpientes(){
+    for(int i = 0; i < maxSerpientes; i++){
+        DrawSprite(serpientes[i].sprite);
+    }
+}
+
+void DibujarNutria(){
+    DrawSprite(nutria.sprite);
+    DrawSprite(nutria.colisionAtaque);
+}
+
 void DibujarJugadores(){
     DrawSprite(jugadores[jugadorActual].ranaJugador.sprite, true);
 }
 
 void DibujarJuego(){
+    //Entorno
     DibujarArbustos();
     DibujarRio();
-    DibujarMoscaCroc();
     DibujarVehiculos();
     DibujarTiempoRestante();
+
+    //Animales
+    DibujarMoscaCroc();
+    // DibujarSerpientes();
+    DibujarNutria();
+    
+    //Jugador
     DibujarJugadores();
 }
 
@@ -3167,6 +3340,8 @@ void LiberarSpriteSheets(){
     esat::SpriteRelease(ranaIntroSpriteSheet.spriteSheet);
     esat::SpriteRelease(puntosSpriteSheet.spriteSheet);
     esat::SpriteRelease(moscaCrocSpriteSheet.spriteSheet);
+    esat::SpriteRelease(serpienteSpriteSheet.spriteSheet);
+    esat::SpriteRelease(nutriaSpriteSheet.spriteSheet);
 }
 
 void LiberarSpritesBase(){
