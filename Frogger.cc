@@ -57,6 +57,12 @@ enum TipoVehiculo {
     CAMION_BACK
 };
 
+enum EstadoMoscaCroc{
+    MOSCA,
+    CROC,
+    PUNTOS
+};
+
 /* STRUCTS */
 struct PuntoCoord{
     float x = 0, y = 0;
@@ -114,7 +120,7 @@ struct Cronometro{
 
     // BarraParada indica si la barra debe continuar avanzando o no
     // TiempoVisible indica si debe mostrarse el tiempo restante con el
-    //              que se ha calculado la puntuacion extra
+    // que se ha calculado la puntuacion extra
     bool isBarraParada = false, isTiempoVisible = false;
 };
 
@@ -165,7 +171,8 @@ struct MoscaCroc{
     Animacion animPuntos;
     int puntuacion = 200;
     // Si no es una mosca bonus, será una trampa Croc (Llamado Croc para diferenciar del cocodrilo del rio)
-    bool isTrampa = false;
+    // Valores Estado
+    EstadoMoscaCroc estado = MOSCA;
 };
 
 /* FIN STRUCTS */
@@ -328,6 +335,23 @@ void GenerarSemillaAleatoria(){
 //Genera un número del 0 al límite indicado -1
 int GenerarNumeroAleatorio(int limite){
     return (rand()%limite);
+}
+
+// Dado un número entero, cada vez que se ejecuta esta función genera true o false en base a esa probabilidad.
+// Si probabilidad == 24, entonces generará true con un 24% de posibilidades 
+bool BoolPorProbabilidad(int probabilidad){
+    // Se suma 1 al numero aleatorio generado para que simule un resultado de 1 a 100 y no de 0 a 99.
+    // Mediante la comprobación probabilidad <= (1 | 100)
+    // De esta manera las probabilidades se podrían generar de esta manera:
+    // Probabilidad 2 -> 2 de cada 100 posibilidades -> 2%
+    // Probabilidad 30 -> 30 de cada 100 posibilidades -> 30%
+    // Probabilidad 100 -> 100 de cada 100 posibilidades -> 100%
+    // ...
+    int random = GenerarNumeroAleatorio(100)+1;
+    // printf("probabilidad %d\n",probabilidad);
+    // printf("random %d\n",random);
+
+    return random <= probabilidad;
 }
 //-- Fin Randoms
 
@@ -763,8 +787,13 @@ void InicializarRanasFinales(FilaRio filaRio){
 
 // Inicializar valores por defecto de las moscas bonus de las zonas finales / cocodrilo trampa:
 void InicializarMoscaCroc(){
-    //Por defecto será una mosca
-    moscaCroc.isTrampa = false;
+    // En el nivel uno, será una mosca siempre, por lo tanto lo inicializa a esto
+    if(jugadores[jugadorActual].dificultadActual <= 1){
+        moscaCroc.estado = MOSCA;
+    }else{
+        //En el resto de niveles, al inicializar BoolPorProbabilidad será true cuando sea un cocodrilo trampa
+        moscaCroc.estado = BoolPorProbabilidad(jugadores[jugadorActual].dificultadActual*10) ? CROC : MOSCA;
+    }
     //Puntos que ofrece
     moscaCroc.puntuacion = 200;
     //Valores de aparición de mosca y croc (La velocidad aquí se utilizará solo para determinar cuando cambia el croc de "aviso" a "letal")
@@ -1155,10 +1184,16 @@ void InicializarVehiculos(){
     }
 }
 
+// Establece los valores por defecto del cronometro
 void InicializarCronometro(){
     cronometro.animCronometro.duracion = 30000;
     cronometro.animCronometro.temporizador = last_time;
     cronometro.animCronometro.velocidad = 500;
+
+    cronometro.contador = 60;
+    cronometro.tiempoRestante = 60;
+    cronometro.isBarraParada = false;
+    cronometro.isTiempoVisible = false;
 }
 
 // Instancia los valores por defecto del jugador
@@ -1277,6 +1312,8 @@ void MatarJugador(){
     jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion = 0;
     jugadores[jugadorActual].ranaJugador.sprite.indiceAnimacion = 0;
     jugadores[jugadorActual].animMuerte.temporizador = last_time;
+    cronometro.tiempoRestante = cronometro.contador;
+    cronometro.isBarraParada = true;
     ActualizarSprite(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
 }
 
@@ -1517,37 +1554,55 @@ void DetectarColisionJugadorZonaFinal(){
             }
         }
     }else{
-        if(DetectarColisionJugador(moscaCroc.sprite.collider) ){
+        // Colision con MoscaCroc para puntos extra o muerte en caso de que esté activo
+        if(DetectarColisionJugador(moscaCroc.sprite.collider) && moscaCroc.sprite.isActive){
+            //Solo si está activo, comprueba si es una trampa o no y actua en consecuencia
+            if(moscaCroc.estado == CROC){
+                MatarJugador();
+            }else{
+                //Suma la puntuación oportuna, cambia el sprite al de 200 puntos y reinicia el temporizador de la animación de puntos
+                jugadores[jugadorActual].puntuacion += moscaCroc.puntuacion;
+                moscaCroc.sprite.isActive = false;
+                moscaCroc.sprite.tipoAnimacion = 0;
+                moscaCroc.sprite.indiceAnimacion = 2;
+                moscaCroc.estado = PUNTOS;
+                moscaCroc.animPuntos.temporizador = last_time;
 
+                ActualizarSprite(puntosSpriteSheet, puntosSpriteSheet_Coords, &moscaCroc.sprite);
+            }
         }
 
-        for(int i = 0; i < maxRanasFinales; i++){
-            if(DetectarColisionJugador(ranasFinales[i].collider)){
-                if(ranasFinales[i].isVisible){
-                    MatarJugador();
-                }else{
-                    ranasFinales[i].isVisible = true;
-                    //Puntos por llegar al final
-                    jugadores[jugadorActual].puntuacion += 50;
-                    //Puntos extra por tiempo (Se multiplica primero para no perder información en caso de que el "medio segundo" actual sea impar)
-                    jugadores[jugadorActual].puntuacion += (cronometro.contador*10)/2 ;
+        // Si después de comprobar el moscaCroc, sigue vivo, entonces hace las comprobaciones de llegar a una meta
+        if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
+            for(int i = 0; i < maxRanasFinales; i++){
+                if(DetectarColisionJugador(ranasFinales[i].collider)){
+                    if(ranasFinales[i].isVisible){
+                        //Si la meta está ocupada, mata al jugador
+                        MatarJugador();
+                    }else{
+                        ranasFinales[i].isVisible = true;
+                        //Puntos por llegar al final
+                        jugadores[jugadorActual].puntuacion += 50;
+                        //Puntos extra por tiempo (Se multiplica primero para no perder información en caso de que el "medio segundo" actual sea impar)
+                        jugadores[jugadorActual].puntuacion += (cronometro.contador*10)/2 ;
 
-                    cronometro.tiempoRestante = cronometro.contador;
-                    cronometro.isTiempoVisible=true;
-                    SpawnJugador();
+                        cronometro.tiempoRestante = cronometro.contador;
+                        cronometro.isTiempoVisible=true;
+                        SpawnJugador();
+                    }
+                }
+
+                if(ranasFinales[i].isVisible){
+                    victoria++;
                 }
             }
 
-            if(ranasFinales[i].isVisible){
-                victoria++;
+            if(victoria == maxRanasFinales){
+                printf("VICTORIA | AVANZANDO NIVEL");
+                
+                //TO_DO Sustituir por IniciarAnimacionVictoria
+                AvanzarNivel();
             }
-        }
-
-        if(victoria == maxRanasFinales){
-            printf("VICTORIA | AVANZANDO NIVEL");
-            
-            //TO_DO Sustituir por IniciarAnimacionVictoria
-            AvanzarNivel();
         }
     }
 }
@@ -1787,73 +1842,73 @@ void ActualizarEstadoFilaRio(Troncodrilo array[]){
     }
 }
 
-// Dado un número entero, cada vez que se ejecuta esta función genera true o false en base a esa probabilidad.
-// Si probabilidad == 24, entonces generará true con un 24% de posibilidades 
-bool BoolPorProbabilidad(int probabilidad){
-    // Se suma 1 al numero aleatorio generado para que simule un resultado de 1 a 100 y no de 0 a 99.
-    // Mediante la comprobación probabilidad <= (1 | 100)
-    // De esta manera las probabilidades se podrían generar de esta manera:
-    // Probabilidad 2 -> 2 de cada 100 posibilidades -> 2%
-    // Probabilidad 30 -> 30 de cada 100 posibilidades -> 30%
-    // Probabilidad 100 -> 100 de cada 100 posibilidades -> 100%
-    // ...
-    int random = GenerarNumeroAleatorio(100)+1;
-    // printf("probabilidad %d\n",probabilidad);
-    // printf("random %d\n",random);
-
-    return random <= probabilidad;
-}
-
 // Actualiza el estado de la Mosca bonus / cocodrilo trampa
 void ActualizarEstadoMoscaCroc(){
     int randomPosition;
-    // Cada moscaCroc.animMoscaCroc.duracion, comprueba la aparición y desaparición del Moscacroc
-    if(HacerCadaX(&moscaCroc.animMoscaCroc.temporizador,moscaCroc.animMoscaCroc.duracion)){
-        if(moscaCroc.sprite.isVisible){
-            moscaCroc.sprite.isVisible = false;
-            moscaCroc.sprite.isActive = false;
 
-            // A partir del nivel de dificultad 2, mediante un condicional que aumenta las posibilidades a mayor nivel de dificultad, 
-            // comprueba de forma aleatoria si el siguiente moscaCroc que aparezca debe ser o no un cocodrilo trampa ((2*10) = 20 -> 20% posibilidades de trampa a dificultad 2 )
-            if(jugadores[jugadorActual].dificultadActual >= 2){
-                moscaCroc.isTrampa = BoolPorProbabilidad(jugadores[jugadorActual].dificultadActual*10);
-            }
-
-        }else{
-            //Genera una posicion aleatoria
-            randomPosition = GenerarNumeroAleatorio(maxRanasFinales);
-
-            //Si NO está ocupada por una ranaFin, entonces hace aparecer la mosca/croc
-            if(!ranasFinales[randomPosition].isVisible){
-                moscaCroc.sprite.collider = ranasFinales[randomPosition].collider;
-
-                // Si es croc, en su primera instancia solo mostrará visible el hocico y no habilitará la colisión
-                if(moscaCroc.isTrampa){
-                    moscaCroc.sprite.tipoAnimacion = 1;
-                    moscaCroc.sprite.indiceAnimacion = 0;
-                }else{
-                    moscaCroc.sprite.isActive = true;
-                    moscaCroc.sprite.tipoAnimacion = 0;
-                    moscaCroc.sprite.indiceAnimacion = 0;
-                }
-
-                ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
-                moscaCroc.sprite.isVisible = true;
+    if(moscaCroc.estado == PUNTOS){
+        // Comprobar que cuando se cambie a estado PUNTOS, ya tenga actualizado el sprite.
+        // Esto solo sirve para reiniciar el contador de la aparicion de la mosca y la trampa cocodrilo y su nuevo esado
+        if(HacerCadaX(&moscaCroc.animPuntos.temporizador, moscaCroc.animPuntos.duracion)){
+            moscaCroc.animMoscaCroc.temporizador = last_time;
+            // En el nivel uno, será una mosca siempre, por lo tanto lo inicializa a esto
+            if(jugadores[jugadorActual].dificultadActual <= 1){
+                moscaCroc.estado = MOSCA;
+            }else{
+                //En el resto de niveles, al inicializar BoolPorProbabilidad será true cuando sea un cocodrilo trampa
+                moscaCroc.estado = BoolPorProbabilidad(jugadores[jugadorActual].dificultadActual*10) ? CROC : MOSCA;
             }
         }
     }else{
-        // Si es un cocodrilo trampa visible, han pasado "animMoscaCroc.velocidad" ms y está con el hocico fuera...
-        if(
-            moscaCroc.isTrampa && 
-            moscaCroc.sprite.isVisible && 
-            GetContadorFromTemp(moscaCroc.animMoscaCroc.temporizador) >= moscaCroc.animMoscaCroc.velocidad && 
-            moscaCroc.sprite.tipoAnimacion == 1 &&
-            moscaCroc.sprite.indiceAnimacion == 0
-        ){
-            //Activa su colisión y avanza de sprite para mostrar la cabeza por completo
-            moscaCroc.sprite.isActive = true;
-            AvanzarSpriteAnimado(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
-            ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
+        // Cada moscaCroc.animMoscaCroc.duracion, comprueba la aparición y desaparición del Moscacroc
+        if(HacerCadaX(&moscaCroc.animMoscaCroc.temporizador,moscaCroc.animMoscaCroc.duracion)){
+            if(moscaCroc.sprite.isVisible){
+                moscaCroc.sprite.isVisible = false;
+                moscaCroc.sprite.isActive = false;
+
+                // A partir del nivel de dificultad 2, mediante un condicional que aumenta las posibilidades a mayor nivel de dificultad, 
+                // comprueba de forma aleatoria si el siguiente moscaCroc que aparezca debe ser o no un cocodrilo trampa ((2*10) = 20 -> 20% posibilidades de trampa a dificultad 2 )
+                if(jugadores[jugadorActual].dificultadActual >= 2){
+                    //En este caso, BoolPorProbabilidad será true cuando sea un cocodrilo trampa
+                    moscaCroc.estado = BoolPorProbabilidad(jugadores[jugadorActual].dificultadActual*10) ? CROC : MOSCA;
+                }
+
+            }else{
+                //Genera una posicion aleatoria
+                randomPosition = GenerarNumeroAleatorio(maxRanasFinales);
+
+                //Si NO está ocupada por una ranaFin, entonces hace aparecer la mosca/croc
+                if(!ranasFinales[randomPosition].isVisible){
+                    moscaCroc.sprite.collider = ranasFinales[randomPosition].collider;
+
+                    // Si es croc, en su primera instancia solo mostrará visible el hocico y no habilitará la colisión
+                    if(moscaCroc.estado){
+                        moscaCroc.sprite.tipoAnimacion = 1;
+                        moscaCroc.sprite.indiceAnimacion = 0;
+                    }else{
+                        moscaCroc.sprite.isActive = true;
+                        moscaCroc.sprite.tipoAnimacion = 0;
+                        moscaCroc.sprite.indiceAnimacion = 0;
+                    }
+
+                    ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
+                    moscaCroc.sprite.isVisible = true;
+                }
+            }
+        }else{
+            // Si es un cocodrilo trampa visible, han pasado "animMoscaCroc.velocidad" ms y está con el hocico fuera...
+            if(
+                moscaCroc.estado && 
+                moscaCroc.sprite.isVisible && 
+                GetContadorFromTemp(moscaCroc.animMoscaCroc.temporizador) >= moscaCroc.animMoscaCroc.velocidad && 
+                moscaCroc.sprite.tipoAnimacion == 1 &&
+                moscaCroc.sprite.indiceAnimacion == 0
+            ){
+                //Activa su colisión y avanza de sprite para mostrar la cabeza por completo
+                moscaCroc.sprite.isActive = true;
+                AvanzarSpriteAnimado(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
+                ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
+            }
         }
     }
 }
@@ -1915,7 +1970,7 @@ void ActualizarEstadoVehiculos(){
 }
 
 //Actualización del estado de la animacion de muerte del jugador y sus consecuencias
-void ActualizarMuerteRanaJugador(){
+void ActualizarMuerteJugador(){
     if(HacerCadaX(&jugadores[jugadorActual].animMuerte.temporizador, jugadores[jugadorActual].animMuerte.velocidad)){
         //Fin animacion muerte
         if(jugadores[jugadorActual].ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
@@ -1962,7 +2017,7 @@ void ActualizarEstadoJugador(){
 
     if(!jugadores[jugadorActual].ranaJugador.sprite.isActive){
         //Si la rana del jugador está muerta...
-        ActualizarMuerteRanaJugador();
+        ActualizarMuerteJugador();
     }else{
         //En caso de que no...
         //Si la rana está saltando actualizará el estado del salto
@@ -2660,32 +2715,18 @@ void DibujarNiveles(){
 
 //Dibuja la barra de tiempo del cronometro en la parte inferior derecha de la pantalla
 void DibujarBarraCronometro(){
-    if(HacerDuranteX(&cronometro.animCronometro.temporizador, cronometro.animCronometro.duracion)){
-        // El tiempo limite del contador es de 30 segundos, pero para obtener la puntuación se 
-        // almacena directamente en el doble (60 medios de segundo)
-        cronometro.contador = ((int)(cronometro.animCronometro.duracion-GetContadorFromTemp(cronometro.animCronometro.temporizador)))/500;
-
-        // printf("ContadorCrono medios segundo = %d \n",cronometro.contador);
-
+    if(cronometro.isBarraParada){
         // A partir de los 5 segundos, se empiza a pintar la barra en rojo
-        if(cronometro.contador < 10){
+        if(cronometro.tiempoRestante < 10){
             DrawRect({
-                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante+1)*6)),VENTANA_Y-FONT_SIZE},
                     {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
                 },
                 {200,0,0}
             );
         }else{
             DrawRect({
-                    // El primer punto de la barra se calcula restandole lo siguiente a VENTANA_X: 
-                    //  Por un lado:
-                    //  Lo que ocupa el texto "TIME"
-                    //
-                    //  Por otro lado:
-                    //  El valor del contadorCronometro del cronometro para que solo se actualice cada medio segundo al ser un entero.
-                    //  +1 (para evitar visualizar la barra vacia con el juego activo) 
-                    //  *6 para que cada avance de la barra sea de 6px. 61 avances (por el +1 anterior) multiplicado de 6 hacen una cantidad razonable máxima de 366px
-                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                    {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.tiempoRestante+1)*6)),VENTANA_Y-FONT_SIZE},
                     // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
                     {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
                 },
@@ -2693,7 +2734,41 @@ void DibujarBarraCronometro(){
             );
         }
     }else{
-        MatarJugador();
+        if(HacerDuranteX(&cronometro.animCronometro.temporizador, cronometro.animCronometro.duracion)){
+            // El tiempo limite del contador es de 30 segundos, pero para obtener la puntuación se 
+            // almacena directamente en el doble (60 medios de segundo)
+            cronometro.contador = ((int)(cronometro.animCronometro.duracion-GetContadorFromTemp(cronometro.animCronometro.temporizador)))/500;
+
+            // printf("ContadorCrono medios segundo = %d \n",cronometro.contador);
+
+            // A partir de los 5 segundos, se empiza a pintar la barra en rojo
+            if(cronometro.contador < 10){
+                DrawRect({
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                        {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                    },
+                    {200,0,0}
+                );
+            }else{
+                DrawRect({
+                        // El primer punto de la barra se calcula restandole lo siguiente a VENTANA_X: 
+                        //  Por un lado:
+                        //  Lo que ocupa el texto "TIME"
+                        //
+                        //  Por otro lado:
+                        //  El valor del contadorCronometro del cronometro para que solo se actualice cada medio segundo al ser un entero.
+                        //  +1 (para evitar visualizar la barra vacia con el juego activo) 
+                        //  *6 para que cada avance de la barra sea de 6px. 61 avances (por el +1 anterior) multiplicado de 6 hacen una cantidad razonable máxima de 366px
+                        {(float)((VENTANA_X-(FONT_SIZE*4))-((cronometro.contador+1)*6)),VENTANA_Y-FONT_SIZE},
+                        // El segundo punto es el tamaño de la ventana menos lo que ocupa el texto "TIME" en pantalla
+                        {VENTANA_X-(FONT_SIZE*4),VENTANA_Y-2}
+                    },
+                    {0,200,0}
+                );
+            }
+        }else{
+            MatarJugador();
+        }
     }
 }
 
