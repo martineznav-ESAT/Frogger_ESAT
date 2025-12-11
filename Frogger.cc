@@ -156,6 +156,7 @@ struct Troncodrilo{
     float velocidadMovimiento;
     // Si no es un tronco, será un cocodrilo
     bool isTronco = true;
+    Animacion animBocaCocodrilo;
 };
 
 struct Tortuga{
@@ -211,6 +212,9 @@ int tortugaSpriteSheet_Coords[12];
 
 SpriteSheet troncoSpriteSheet;
 int troncoSpriteSheet_Coords[6];
+
+SpriteSheet cocodriloSpriteSheet;
+int cocodriloSpriteSheet_Coords[8];
 
 SpriteSheet zonaFinalSpriteSheet;
 int zonaFinalSpriteSheet_Coords[8];
@@ -491,6 +495,15 @@ void InicializarSpriteSheets(){
         troncoSpriteSheet_Coords,
         1,
         3
+    );
+
+    // Inicializa el SpriteSheet de los cocodrilos y su array de coordenadas
+    InicializarSpriteSheet(
+        "./Recursos/Imagenes/SpriteSheets/CocodriloSpriteSheet.png",
+        &cocodriloSpriteSheet,
+        cocodriloSpriteSheet_Coords,
+        1,
+        4
     );
 
     // Inicializa el SpriteSheet de la zona final y su array de coordenadas
@@ -902,6 +915,20 @@ void InicializarFilaTortugas(Tortuga tortugas[], int longitud, int margen, float
     }
 }
 
+// Asigna al troncodrilo proporcionado, el valor de indiceAnimacion para mostrar el sprite del tronco correcto.
+// El indice debe ser ubicacion relativa. Es decir, 0 indica que es el principio del tronco, y longitud-1 indica el final del tronco
+void AsignarValoresTronco(Troncodrilo *troncodrilo, int indice, int longitud){
+    if(indice == 0){
+        (*troncodrilo).sprite.indiceAnimacion = 0;
+    }else{
+        if(indice == longitud-1){
+            (*troncodrilo).sprite.indiceAnimacion = troncoSpriteSheet.coordsAnim-2;
+        }else{
+            (*troncodrilo).sprite.indiceAnimacion = 2;
+        }
+    }
+}
+
 // Inicializar valores de una fila de troncodrilos donde:
 // longitud  -> Indica el tamaño del tronco
 // margen    -> Indica la cantidad de espaciado entre troncos
@@ -921,19 +948,13 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
 
         if(alternator && longitud > 0 && CabeGrupoObstaculos(contador,i,longitud)){
             //Inicializar grupo
+            //Siempre empiezan habiendo troncos en pantalla
+            troncodrilos[i].isTronco = true;
             troncodrilos[i].sprite.isVisible = true;
             troncodrilos[i].sprite.isActive = true;
 
-            // Construye los troncos
-            if(contador == 0){
-                troncodrilos[i].sprite.indiceAnimacion = 0;
-            }else{
-                if(contador == longitud-1){
-                    troncodrilos[i].sprite.indiceAnimacion = troncoSpriteSheet.coordsAnim-2;
-                }else{
-                    troncodrilos[i].sprite.indiceAnimacion = 2;
-                }
-            }
+            // Construye el tronco
+            AsignarValoresTronco(&troncodrilos[i],contador,longitud);
             
             ++contador %= longitud;
             if(contador == 0){
@@ -949,6 +970,10 @@ void InicializarFilaTroncodrilos(Troncodrilo troncodrilos[], int longitud, int m
                 alternator = !alternator;
             }
         }
+
+        troncodrilos[i].animBocaCocodrilo.duracion = 1000.0f;
+        troncodrilos[i].animBocaCocodrilo.temporizador = last_time;
+        troncodrilos[i].animBocaCocodrilo.velocidad = 1000.0f;
         ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&troncodrilos[i].sprite);
     }
 }
@@ -1643,10 +1668,10 @@ bool DetectarColision(Collider C1, Collider C2) {
 // Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision 
 // y comprueba si hay colisión entre ellos
 bool DetectarColisionJugador(Collider object_C) {
-  return (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-6 > object_C.P1.x) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.x+6 < object_C.P2.x) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.y-6 > object_C.P1.y) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.y+6 < object_C.P2.y);
+  return (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-10 > object_C.P1.x) &&
+         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.x+10 < object_C.P2.x) &&
+         (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.y-10 > object_C.P1.y) &&
+         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.y+10 < object_C.P2.y);
 }
 
 // Si está saltando, comprueba si se choca con la pared.
@@ -1690,6 +1715,10 @@ void DetectarColisionJugadorZonaFinal(){
                         MatarJugador();
                     }else{
                         ranasFinales[i].isVisible = true;
+                        if(moscaCroc.estado == CROC){
+                            moscaCroc.sprite.isVisible = false;
+                        }
+
                         //Puntos por llegar al final
                         jugadores[jugadorActual].puntuacion += 50;
                         //Puntos extra por tiempo (Se multiplica primero para no perder información en caso de que el "medio segundo" actual sea impar)
@@ -1718,60 +1747,144 @@ void DetectarColisionJugadorZonaFinal(){
 
 // Comprueba si puede posarse sobre un troncodrilo
 void DetectarColisionJugadorFilaTroncodrilos(Troncodrilo troncodrilos[]){
-    int indiceActual = 0;
+    // Al saltar puede quedarse en medio de 2 colisiones. 
+    // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la seggunda.
+    int colisionesDetectadas_T[2] = {-1,-1};
+    int colisionesDetectadas_I = 0, indiceActual = 0;
 
-    while(!DetectarColisionJugador(troncodrilos[indiceActual].sprite.collider)){
+    //Almacenar colisiones actuales
+    do{
+        if(DetectarColisionJugador(troncodrilos[indiceActual].sprite.collider)){
+            colisionesDetectadas_T[colisionesDetectadas_I] = indiceActual;
+            colisionesDetectadas_I++;
+        }
         indiceActual++;
-    };
+    } while (colisionesDetectadas_I < 2 && indiceActual < VENTANA_COLUMNAS);
+       
+    // LOG
+    // for(int i = 0; i < 2; i++){
+    //     printf("INDICE %d\n",colisionesDetectadas_T[i]);
+    // }
 
     if(jugadores[jugadorActual].ranaJugador.isJumping){
+        //Comprobar "aplastamiento"
+        // SALTO LATERAL NO PERMITIDO SI CAMBIAS DE PLATAFORMA
+        // Básicamente detecta si en algun punto en el aire, no detecta colisión con ninguna tortuga, indicando que
+        // estas cambiando de grupo
         switch(jugadores[jugadorActual].ranaJugador.direccion){
             case DERECHA:
-                
-            break;
             case IZQUIERDA:
-
+                // Si solo está en contacto con una colisión Y esa colisión no está activa...
+                if(colisionesDetectadas_T[1] == -1 && !troncodrilos[colisionesDetectadas_T[0]].sprite.isActive){
+                    MatarJugador();
+                }
             break;
         }
     }else{
-        if(troncodrilos[indiceActual].sprite.isActive){
-            MoveCollider(
-                &jugadores[jugadorActual].ranaJugador.sprite.collider, 
-                (Direccion) troncodrilos[indiceActual].direccion, 
-                troncodrilos[indiceActual].velocidadMovimiento
-            );
+        // LOG
+        // for(int i = 0; i < 2; i++){
+        //     printf("INDICE %d\n",colisionesDetectadas_T[i]);
+        // }
+        // Si está en contacto con 2 
+        if(colisionesDetectadas_T[0] != -1 && colisionesDetectadas_T[1] != -1){
+            // Con que una de las 2 esté activa, se mueve a la vez q la fila en general
+            if(troncodrilos[colisionesDetectadas_T[0]].sprite.isActive || troncodrilos[colisionesDetectadas_T[1]].sprite.isActive){
+                MoveCollider(
+                    &jugadores[jugadorActual].ranaJugador.sprite.collider, 
+                    (Direccion) troncodrilos[colisionesDetectadas_T[0]].direccion, 
+                    troncodrilos[colisionesDetectadas_T[0]].velocidadMovimiento
+                );
+            }else{
+            // Si ninguno está activo el jugador muere
+                MatarJugador();
+            }
         }else{
-            MatarJugador();
+            // Si solo está en contacto con uno, será el primero, luego hace lo mismo...
+            if(colisionesDetectadas_T[0] != -1){
+                //Comprueba que está activo
+                if(troncodrilos[colisionesDetectadas_T[0]].sprite.isActive){
+                    MoveCollider(
+                        &jugadores[jugadorActual].ranaJugador.sprite.collider, 
+                        (Direccion) troncodrilos[colisionesDetectadas_T[0]].direccion, 
+                        troncodrilos[colisionesDetectadas_T[0]].velocidadMovimiento
+                    );
+                }else{
+                    MatarJugador();
+                }
+            }
+            //Siempre debería estar en contacto con alguno si se está comprobando la colisión de la fila al aterrizar
         }
     }
 }
 
 // Comprueba si puede posarse sobre una tortuga
 void DetectarColisionJugadorFilaTortugas(Tortuga tortugas[]){
-    int indiceActual = 0;
+    // Al saltar puede quedarse en medio de 2 colisiones. 
+    // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la seggunda.
+    int colisionesDetectadas_T[2] = {-1,-1};
+    int colisionesDetectadas_I = 0, indiceActual = 0;
 
-    while(!DetectarColisionJugador(tortugas[indiceActual].sprite.collider)){
+    //Almacenar colisiones actuales
+    do{
+        if(DetectarColisionJugador(tortugas[indiceActual].sprite.collider)){
+            colisionesDetectadas_T[colisionesDetectadas_I] = indiceActual;
+            colisionesDetectadas_I++;
+        }
         indiceActual++;
-    };
+    } while (colisionesDetectadas_I < 2 && indiceActual < VENTANA_COLUMNAS);
+       
+    // LOG
+    // for(int i = 0; i < 2; i++){
+    //     printf("INDICE %d\n",colisionesDetectadas_T[i]);
+    // }
 
     if(jugadores[jugadorActual].ranaJugador.isJumping){
+        //Comprobar "aplastamiento"
+        // SALTO LATERAL NO PERMITIDO SI CAMBIAS DE PLATAFORMA
+        // Básicamente detecta si en algun punto en el aire, no detecta colisión con ninguna tortuga, indicando que
+        // estas cambiando de grupo
         switch(jugadores[jugadorActual].ranaJugador.direccion){
             case DERECHA:
-                //TO_DO ALGORITMO DE DETECCION DE SALTO LATERAL NO PERMITIDO
-            break;
             case IZQUIERDA:
-
+                // Si solo está en contacto con una colisión Y esa colisión no está activa...
+                if(colisionesDetectadas_T[1] == -1 && !tortugas[colisionesDetectadas_T[0]].sprite.isActive){
+                    MatarJugador();
+                }
             break;
         }
     }else{
-        if(tortugas[indiceActual].sprite.isActive){
-            MoveCollider(
-                &jugadores[jugadorActual].ranaJugador.sprite.collider, 
-                (Direccion) tortugas[indiceActual].direccion, 
-                tortugas[indiceActual].velocidadMovimiento
-            );
+        // LOG
+        // for(int i = 0; i < 2; i++){
+        //     printf("INDICE %d\n",colisionesDetectadas_T[i]);
+        // }
+        // Si está en contacto con 2 
+        if(colisionesDetectadas_T[0] != -1 && colisionesDetectadas_T[1] != -1){
+            // Con que una de las 2 esté activa, se mueve a la vez q la fila en general
+            if(tortugas[colisionesDetectadas_T[0]].sprite.isActive || tortugas[colisionesDetectadas_T[1]].sprite.isActive){
+                MoveCollider(
+                    &jugadores[jugadorActual].ranaJugador.sprite.collider, 
+                    (Direccion) tortugas[colisionesDetectadas_T[0]].direccion, 
+                    tortugas[colisionesDetectadas_T[0]].velocidadMovimiento
+                );
+            }else{
+            // Si ninguno está activo el jugador muere
+                MatarJugador();
+            }
         }else{
-            MatarJugador();
+            // Si solo está en contacto con uno, será el primero, luego hace lo mismo...
+            if(colisionesDetectadas_T[0] != -1){
+                //Comprueba que está activo
+                if(tortugas[colisionesDetectadas_T[0]].sprite.isActive){
+                    MoveCollider(
+                        &jugadores[jugadorActual].ranaJugador.sprite.collider, 
+                        (Direccion) tortugas[colisionesDetectadas_T[0]].direccion, 
+                        tortugas[colisionesDetectadas_T[0]].velocidadMovimiento
+                    );
+                }else{
+                    MatarJugador();
+                }
+            }
+            //Siempre debería estar en contacto con alguno si se está comprobando la colisión de la fila al aterrizar
         }
     }
 }
@@ -1946,14 +2059,13 @@ void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo){
     if((*troncodrilo).isTronco){
         ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&(*troncodrilo).sprite);
     }else{
-        ActualizarSprite(troncoSpriteSheet,troncoSpriteSheet_Coords,&(*troncodrilo).sprite);
+        ActualizarSprite(cocodriloSpriteSheet,cocodriloSpriteSheet_Coords,&(*troncodrilo).sprite);
     }
 }
 
 // Actualiza el estado de un troncodrilo dado su indice para comprobar conversion de cocodrilo
 // DEBE USARSE CON INDICES QUE SE SABE QUE FORMAN PARTE DE UN TRONCODRILO VISIBLE
-void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo, int indice){
-    //En caso
+void ActualizarEstadoTroncodrilo(Troncodrilo filaTroncos[], int indice){
     int troncoProb;
     switch(jugadores[jugadorActual].dificultadActual){
         case 1:
@@ -1967,19 +2079,56 @@ void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo, int indice){
             troncoProb = 25;
         break;
         default:
-            troncoProb = 0;
+            troncoProb = 5;
         break;
     }
 
-    if (ComprobarSalidaVentanaSprite(&(*troncodrilo).sprite, (*troncodrilo).direccion)){
-        if(indice == 0){
-            (*troncodrilo).isTronco = BoolPorProbabilidad(troncoProb);
+    if (ComprobarSalidaVentanaSprite(&filaTroncos[indice].sprite, filaTroncos[indice].direccion)){
+        // printf("INDICE DE TRONCO SALIDA -> %d\n", indice);
+        if(indice == 3){
+            filaTroncos[indice].isTronco = BoolPorProbabilidad(troncoProb);
+
+            if(filaTroncos[indice].isTronco){
+                AsignarValoresTronco(&filaTroncos[indice], indice, 4);
+            }else{
+                //Asignar valores cocodrilo con boca cerrada
+                filaTroncos[indice].sprite.indiceAnimacion = 4;
+                filaTroncos[indice].sprite.isActive = true;
+            }
+        }else{
+            filaTroncos[indice].isTronco = filaTroncos[3].isTronco;
+
+            if(filaTroncos[indice].isTronco){
+                AsignarValoresTronco(&filaTroncos[indice], indice, 4);
+                filaTroncos[indice].sprite.isVisible = true;
+                filaTroncos[indice].sprite.isActive = true;
+            }else{
+                // printf("OCULTAR COLA -> %d\n", indice);
+                // El cocodrilo mide 3, por lo tanto aseguramos que el resto que sobra del grupo
+                // se oculte si es un coocodrilo
+                if(indice <= 0){
+                    filaTroncos[indice].sprite.isVisible = false;
+                    filaTroncos[indice].sprite.isActive = false;
+                }else{
+                    filaTroncos[indice].sprite.indiceAnimacion = (indice-1)*2;
+                    filaTroncos[indice].sprite.isActive = true;
+                }
+            }
         }
 
-        
+    }else{
+        if(indice == 3 && !filaTroncos[indice].isTronco && HacerCadaX(&filaTroncos[indice].animBocaCocodrilo.temporizador, filaTroncos[indice].animBocaCocodrilo.duracion)){
+            if(filaTroncos[indice].sprite.indiceAnimacion == 4){
+                AvanzarSpriteAnimado(cocodriloSpriteSheet, cocodriloSpriteSheet_Coords, &filaTroncos[indice].sprite);
+                filaTroncos[indice].sprite.isActive = false;
+            }else{
+                RetrocederSpriteAnimado(cocodriloSpriteSheet, cocodriloSpriteSheet_Coords, &filaTroncos[indice].sprite);
+                filaTroncos[indice].sprite.isActive = true;
+            }
+        }
     }
 
-    ActualizarEstadoTroncodrilo(&(*troncodrilo));
+    ActualizarEstadoTroncodrilo(&filaTroncos[indice]);
 }
 
 //Recorre todos los troncodrilos de la fila de un rio y actualiza sus estados
@@ -1988,11 +2137,12 @@ void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo, int indice){
 void ActualizarEstadoFilaTroncodrilos(Troncodrilo array[], bool posibilidadCocodrilos = false){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         if(posibilidadCocodrilos && i < 4){
+            // TO_DO, DEBERÍA TENER UN STRUCT DE TIPO FilaTroncodrilo o similar con la información necesaria
             // 4 es el tamaño de grupo en la fila en la que pueden aparecer cocodrilos. 
             // Por lo tanto, dado que técnicamente solo el primero del array puede convertirse en cocodrilo
             // si el indice es mayor al número del grupo (Sprites del primero troncodrilo 0-3), 
             // se actualizará de forma normal
-            ActualizarEstadoTroncodrilo(&array[i], i);
+            ActualizarEstadoTroncodrilo(array, i);
         }else{
             ActualizarEstadoTroncodrilo(&array[i]);
         }
@@ -2541,8 +2691,8 @@ void DrawSprite(Sprite sprite, bool isPlayer = false){
 
         if(isPlayer){
             DrawCollider({
-                    {sprite.collider.P1.x+6, sprite.collider.P1.y+6},
-                    {sprite.collider.P2.x-6, sprite.collider.P2.y-6}
+                    {sprite.collider.P1.x+10, sprite.collider.P1.y+10},
+                    {sprite.collider.P2.x-10, sprite.collider.P2.y-10}
                 }
             );
         }else{
@@ -2834,8 +2984,8 @@ void DibujarJugadores(){
 void DibujarJuego(){
     DibujarArbustos();
     DibujarRio();
-    DibujarVehiculos();
     DibujarMoscaCroc();
+    DibujarVehiculos();
     DibujarTiempoRestante();
     DibujarJugadores();
 }
@@ -3010,6 +3160,7 @@ void LiberarSpriteSheets(){
     esat::SpriteRelease(vehiculosSpriteSheet.spriteSheet);
     esat::SpriteRelease(tortugaSpriteSheet.spriteSheet);
     esat::SpriteRelease(troncoSpriteSheet.spriteSheet);
+    esat::SpriteRelease(cocodriloSpriteSheet.spriteSheet);
     esat::SpriteRelease(zonaFinalSpriteSheet.spriteSheet);
     esat::SpriteRelease(ranaFinSpriteSheet.spriteSheet);
     esat::SpriteRelease(tituloSpriteSheet.spriteSheet);
