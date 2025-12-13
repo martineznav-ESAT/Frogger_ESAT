@@ -872,23 +872,55 @@ void InicializarMoscaCroc(){
     ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
 }
 
+
+void AsignarVelocidadAleatoriaSerpiente(Serpiente *serpiente){
+    int varianteVelocidad = GenerarNumeroAleatorio(3)+1;
+    (*serpiente).animMovimiento.duracion = 150-(varianteVelocidad*20);
+    (*serpiente).animMovimiento.velocidad = 0.25+(varianteVelocidad*0.25);
+}
+
+// Seleccionar ubicación de aparición y mover allí la serpiente siempre que haya plataforma para ello
+void SpawnSerpiente(Serpiente *serpiente){
+    printf("SPAWN SERPTIENTE\n");
+    AsignarVelocidadAleatoriaSerpiente(&(*serpiente));
+    switch(GenerarNumeroAleatorio(jugadores[jugadorActual].dificultadActual >= 5 ? 5 : 10)){
+        //Dificultad 5 -> 40% de posibilidades de salir en el arbusto
+        //Resto de dificultades (en principio 3 y 4) -> 20% de posibilidades de salir en el arbusto
+        case 0:
+            (*serpiente).direccion = IZQUIERDA;
+            (*serpiente).sprite.collider.P1.x = VENTANA_X;
+            (*serpiente).sprite.collider.P2.x = VENTANA_X+(serpienteSpriteSheet.spriteWidth);
+            (*serpiente).sprite.collider.P1.y = VENTANA_Y-(SPRITE_SIZE*8);
+            (*serpiente).sprite.collider.P2.y = VENTANA_Y-(SPRITE_SIZE*7);
+        break;
+        case 1:
+            (*serpiente).direccion = DERECHA;
+            (*serpiente).sprite.collider.P1.x = -serpienteSpriteSheet.spriteWidth;
+            (*serpiente).sprite.collider.P2.x = 0;
+            (*serpiente).sprite.collider.P1.y = VENTANA_Y-(SPRITE_SIZE*8);
+            (*serpiente).sprite.collider.P2.y = VENTANA_Y-(SPRITE_SIZE*7);
+            
+        break;
+        default:
+            printf("FILA TRONCOS\n");
+            (*serpiente).direccion = DERECHA;
+            (*serpiente).sprite.collider.P1.x = -serpienteSpriteSheet.spriteWidth;
+            (*serpiente).sprite.collider.P2.x = 0;
+            (*serpiente).sprite.collider.P1.y = VENTANA_Y-(SPRITE_SIZE*11);
+            (*serpiente).sprite.collider.P2.y = VENTANA_Y-(SPRITE_SIZE*10);
+        break;
+    }
+}
+
 // Inicializar valores por defecto de las serpientes
 void InicializarSerpientes(){
     for(int i = 0; i < maxSerpientes; i++){
         serpientes[i].direccion = DERECHA;
         serpientes[i].direccionAnimacion = true;
 
-        serpientes[i].animMovimiento.duracion = 150;
-        serpientes[i].animMovimiento.velocidad = 1.5;
         serpientes[i].animMovimiento.temporizador = last_time;
 
         //Inicializa sprite
-        //TO_DO, CAMBIAR POR SPAWN
-        serpientes[i].sprite.collider = {
-            {0.0f, 0.0f},
-            {(float)serpienteSpriteSheet.spriteWidth, (float)serpienteSpriteSheet.spriteHeight}
-        };
-
         serpientes[i].sprite.indiceAnimacion = 0;
         serpientes[i].sprite.tipoAnimacion = 0;
 
@@ -905,6 +937,15 @@ void InicializarSerpientes(){
                 //En el resto de dificultades, solo aparece una, por lo tanto, si es indice 0 se activará
                 serpientes[i].sprite.isActive = (i == 0);
                 serpientes[i].sprite.isVisible = (i == 0);
+            }
+        }
+
+        if(serpientes[i].sprite.isVisible){
+            SpawnSerpiente(&serpientes[i]);
+            //A partir del segundo, los inicializa a una distancia algo distinta para evitar solaparlos en caso de ir a la misma velocidad
+            if(i!=0){
+                serpientes[i].sprite.collider.P1.x += 10;
+                serpientes[i].sprite.collider.P2.x += 10;
             }
         }
 
@@ -1774,11 +1815,11 @@ void DetectarControles(){
 
 // Dado un sprite, devuelve su número de fila en posición vertical contando desde abajo
 float GetFilaPantallaSprite(Sprite s){
-    return (VENTANA_Y - s.collider.P1.y)/ranaBaseSpriteSheet.spriteHeight;
+    return (VENTANA_Y - s.collider.P1.y)/SPRITE_SIZE;
 }
-// Dado un sprite, devuelve su número de colimna en posición horizontal contando desde la izquierda
+// Dado un sprite, devuelve su número de columna en posición horizontal contando desde la izquierda
 float GetColumnaPantallaSprite(Sprite s){
-    return s.collider.P1.x/ranaBaseSpriteSheet.spriteWidth;
+    return s.collider.P1.x/SPRITE_SIZE;
 }
 
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
@@ -1795,10 +1836,15 @@ bool DetectarColision(Collider C1, Collider C2) {
 // Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision 
 // y comprueba si hay colisión entre ellos
 bool DetectarColisionJugador(Collider object_C) {
-  return (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-10 > object_C.P1.x) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.x+10 < object_C.P2.x) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.y-10 > object_C.P1.y) &&
-         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.y+10 < object_C.P2.y);
+    if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
+        return (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-10 > object_C.P1.x) &&
+        (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.x+10 < object_C.P2.x) &&
+        (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.y-10 > object_C.P1.y) &&
+        (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.y+10 < object_C.P2.y);
+    }else{
+        return false;
+    }
+    
 }
 
 // Si está saltando, comprueba si se choca con la pared.
@@ -1875,7 +1921,7 @@ void DetectarColisionJugadorZonaFinal(){
 // Comprueba si puede posarse sobre un troncodrilo
 void DetectarColisionJugadorFilaTroncodrilos(Troncodrilo troncodrilos[]){
     // Al saltar puede quedarse en medio de 2 colisiones. 
-    // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la seggunda.
+    // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la segunda.
     int colisionesDetectadas_T[2] = {-1,-1};
     int colisionesDetectadas_I = 0, indiceActual = 0;
 
@@ -2405,30 +2451,162 @@ void ActualizarEstadoMoscaCroc(){
     }
 }
 
-void ActualizarEstadoSerpientes(){
-    for (int i = 0; i < maxSerpientes; i++){
-        // printf("ACTUALIZAR ESTADO SERPIENTE %d\n",i);
-        //Animación Serpiente
-        if(serpientes[i].sprite.isVisible && HacerCadaX(&serpientes[i].animMovimiento.temporizador, serpientes[i].animMovimiento.duracion)){
+// Actualiza la animación de la serpiente
+void ActualizarEstadoAnimacionSerpiente(Serpiente *serpiente){
+    if(HacerCadaX(&(*serpiente).animMovimiento.temporizador, (*serpiente).animMovimiento.duracion)){
 
-            // Comprobar direccion de la animación
-            if(serpientes[i].sprite.indiceAnimacion <= 0){
-                serpientes[i].direccionAnimacion = true;
+        // Comprobar direccion de la animación
+        if((*serpiente).sprite.indiceAnimacion <= 0){
+            (*serpiente).direccionAnimacion = true;
+        }else{
+            if((*serpiente).sprite.indiceAnimacion >= serpienteSpriteSheet.coordsAnim-2){
+                (*serpiente).direccionAnimacion = false;
+            }
+        }
+
+        //Avanzar/Retroceder Sprite
+        if((*serpiente).direccionAnimacion){
+            AvanzarSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &(*serpiente).sprite);
+        }else{
+            RetrocederSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &(*serpiente).sprite);
+        }
+
+        ActualizarSprite(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &(*serpiente).sprite);
+    }
+}
+
+// Comprueba si la serpiente está totalmente encima de un tronco en base a las colisiones detectadas en la actualización de estado de la misma
+bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
+    bool isSobreTronco = false;
+    int indice = 0, contador = 0;
+
+    //Está sobre 3 sprites de tronco
+    do{
+        if(colisionesDetectadas[indice] != -1 && troncos_2[colisionesDetectadas[indice]].sprite.isVisible){
+            contador++;
+            isSobreTronco = contador >= 3;
+        }
+        indice++;
+    } while (indice < 3 && !isSobreTronco);
+    
+    printf("contador %d\n",contador);
+    if(!isSobreTronco){
+        indice = 0;
+        contador = 0;
+        //Está sobrepasando el borde izquierdo?
+        if((*serpiente).sprite.collider.P1.x <= 0){
+            //Está sobre 2 sprites de tronco?
+            do{
+                if(colisionesDetectadas[indice] != -1 && troncos_2[colisionesDetectadas[indice]].sprite.isVisible){
+                    contador++;
+                    isSobreTronco = contador >= 2;
+                }
+                indice++;
+            } while (indice < 3 && !isSobreTronco);
+        }else{
+            //Está sobrepasando el borde derecho?
+            if((*serpiente).sprite.collider.P2.x >= VENTANA_X){
+                (*serpiente).direccion = DERECHA;
+                isSobreTronco = true;
+            }
+        }
+
+        
+        
+        // printf("WAITING FOR LOG\n");
+        // for(int i = 0; i < 3; i++){
+        //     if(colisionesDetectadas[i] != -1 && troncos_2[colisionesDetectadas[i]].sprite.isVisible){
+        //         printf("Contact %d | %d \n",i,colisionesDetectadas[i]);
+        //     }
+        // }
+        // printf("\n\n");
+        // isSobreTronco = (*serpiente).sprite.collider.P2.x <= 0 && troncos_2[colisionesDetectadas[0]].sprite.isVisible;
+        // if(!isSobreTronco){
+        //     printf("WAITING FOR LOG\n");
+        //     for(int i = 0; i < 3; i++){
+        //         if(colisionesDetectadas[i] != -1 && troncos_2[colisionesDetectadas[i]].sprite.isVisible){
+        //             printf("Contact %d | %d \n",i,colisionesDetectadas[i]);
+        //         }
+        //     }
+        //     printf("\n\n");
+        //     isSobreTronco = (*serpiente).sprite.collider.P2.x <= 0 && troncos_2[colisionesDetectadas[0]].sprite.isVisible && troncos_2[colisionesDetectadas[0]].sprite.isVisible;
+        // }
+    }
+
+    return isSobreTronco;
+}
+
+// Actualiza los estados de la serpiente
+// -Movimiento
+// -Salida de pantalla
+// -Respawn
+void ActualizarEstadoSerpiente(Serpiente *serpiente){
+    // Al reaparecer puede quedarse en medio de 3 colisiones. 
+    // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera.
+    int colisionesDetectadas_T[3] = {-1,-1,-1};
+    int colisionesDetectadas_I = 0, indiceActual = 0;
+    bool isPlataforma = false;
+
+    if((*serpiente).sprite.isVisible){
+        //Lo primero de todo la colision con el jugador
+        if(DetectarColisionJugador((*serpiente).sprite.collider) && !jugadores[jugadorActual].ranaJugador.isJumping){
+            MatarJugador();
+        }
+
+        //Si sale de la pantalla, siempre que no sea por el lado izquierdo de la fila de troncos
+        if(ComprobarSalidaVentanaSprite(&(*serpiente).sprite, (*serpiente).direccion)){
+            //Respawnea la serpiente
+            SpawnSerpiente(&(*serpiente));
+        }
+
+        // printf("Serpiente %d %d\n",i,(int)GetFilaPantallaSprite((*serpiente).sprite));
+        if(GetFilaPantallaSprite((*serpiente).sprite) == 11){
+            //Almacenar colisiones actuales si está en la segunda fila de troncos
+            do{
+                if(DetectarColision((*serpiente).sprite.collider, troncos_2[indiceActual].sprite.collider)){
+                    colisionesDetectadas_T[colisionesDetectadas_I] = indiceActual;
+                    colisionesDetectadas_I++;
+                }
+                indiceActual++;
+            } while (colisionesDetectadas_I < 3 && indiceActual < VENTANA_COLUMNAS);
+
+            //LOG
+            // for(int i = 0 ; i < 3; i++){
+            //     printf("%d |",colisionesDetectadas_T[i]);
+            // }
+            // printf("\n\n");
+
+            //Si la última posición de las colisiones detectadas es distinta de -1, significa que está en conctacto con 3 plataformas activas
+            if(IsSerpienteSobreTronco(&(*serpiente), colisionesDetectadas_T)){
+                //Movimiento de tronco sobre la serpiente
+                MoveCollider(&(*serpiente).sprite.collider, troncos_2[0].direccion, troncos_2[0].velocidadMovimiento);
+
+                //Movimiento de la serpiente
+                ActualizarEstadoAnimacionSerpiente(&(*serpiente));
+                MoveCollider(&(*serpiente).sprite.collider, (*serpiente).direccion, (*serpiente).animMovimiento.velocidad);
             }else{
-                if(serpientes[i].sprite.indiceAnimacion >= serpienteSpriteSheet.coordsAnim-2){
-                    serpientes[i].direccionAnimacion = false;
+                //Accion colision con borde de tronco
+                if((*serpiente).sprite.collider.P2.x > 0){
+                    (*serpiente).direccion = (*serpiente).direccion == DERECHA ? IZQUIERDA : DERECHA;
+                    if((*serpiente).direccion == troncos_2[0].direccion){
+                        MoveCollider(&(*serpiente).sprite.collider, (*serpiente).direccion, (*serpiente).animMovimiento.velocidad+5);
+                    }else{
+                        MoveCollider(&(*serpiente).sprite.collider, (*serpiente).direccion, (*serpiente).animMovimiento.velocidad);
+                    }
                 }
             }
-
-            //Avanzar/Retroceder Sprite
-            if(serpientes[i].direccionAnimacion){
-                AvanzarSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
-            }else{
-                RetrocederSpriteAnimado(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
-            }
-
-            ActualizarSprite(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
+        }else{
+            //Movimiento de la serpiente
+            ActualizarEstadoAnimacionSerpiente(&(*serpiente));
+            MoveCollider(&(*serpiente).sprite.collider, (*serpiente).direccion, (*serpiente).animMovimiento.velocidad);
         }
+    }
+}
+
+
+void ActualizarEstadoSerpientes(){
+    for (int i = 0; i < maxSerpientes; i++){
+        ActualizarEstadoSerpiente(&serpientes[i]);
     }
 }
 
@@ -2836,6 +3014,7 @@ void DrawText(char texto[], int longitud, Align_V alineacionV, Align_H alineacio
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
 
+// Dibuja el sprite si es visible y el borde de la colision si se activa el modo "debug"
 void DrawSprite(Sprite sprite, bool isPlayer = false){
     if(areCollidersVisible){
         if(sprite.isActive){
@@ -2857,6 +3036,32 @@ void DrawSprite(Sprite sprite, bool isPlayer = false){
 
     if(sprite.isVisible){
         esat::DrawSprite(sprite.imagen, sprite.collider.P1.x, sprite.collider.P1.y);
+    }
+}
+
+// Dibuja el sprite si es visible y el borde de la colision si se activa el modo "debug"
+// Incluye posibilidad de transformación
+void DrawSprite(Sprite sprite, esat::SpriteTransform transform, bool isPlayer = false){
+    if(areCollidersVisible){
+        if(sprite.isActive){
+            esat::DrawSetStrokeColor(0,255,0);
+        }else{
+            esat::DrawSetStrokeColor(255,0,0);
+        }
+
+        if(isPlayer){
+            DrawCollider({
+                    {sprite.collider.P1.x+10, sprite.collider.P1.y+10},
+                    {sprite.collider.P2.x-10, sprite.collider.P2.y-10}
+                }
+            );
+        }else{
+            DrawCollider(sprite.collider);
+        }
+    }
+
+    if(sprite.isVisible){
+        esat::DrawSprite(sprite.imagen, transform);
     }
 }
 
@@ -3133,8 +3338,19 @@ void DibujarMoscaCroc(){
 }
 
 void DibujarSerpientes(){
+    esat::SpriteTransform st;
     for(int i = 0; i < maxSerpientes; i++){
-        DrawSprite(serpientes[i].sprite);
+        if(serpientes[i].direccion == DERECHA){
+            esat::SpriteTransformInit(&st);
+            // Invertir la escala hace que se dibuje a la inversa
+            st.scale_x = -1;
+            // Por lo tanto la x se debe de ajustar en el caso de que se invierta
+            st.x = serpientes[i].sprite.collider.P1.x + serpienteSpriteSheet.spriteWidth;
+            st.y = serpientes[i].sprite.collider.P1.y;
+            DrawSprite(serpientes[i].sprite, st);
+        }else{
+            DrawSprite(serpientes[i].sprite);
+        }
     }
 }
 
@@ -3156,7 +3372,7 @@ void DibujarJuego(){
 
     //Animales
     DibujarMoscaCroc();
-    // DibujarSerpientes();
+    DibujarSerpientes();
     DibujarNutria();
     
     //Jugador
