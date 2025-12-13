@@ -668,9 +668,17 @@ void RetrocederSpriteAnimado(SpriteSheet spriteSheet, int spriteSheetCoords[], S
     }
 }
 
+//Reubica un sprite dado un punto de coordenada
 void RellocateSprite(Sprite *sprite, PuntoCoord nuevaUbicacion){
     (*sprite).collider.P1 = nuevaUbicacion;
     (*sprite).collider.P2 = {nuevaUbicacion.x + esat::SpriteWidth((*sprite).imagen), nuevaUbicacion.y + esat::SpriteHeight((*sprite).imagen)};
+}
+
+// Version de RellocateSprite con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
+// (Colision de ataque de la nutria por ejemplo)
+void RellocateSprite(Sprite *sprite, PuntoCoord nuevaUbicacion, SpriteSheet spriteSheet){
+    (*sprite).collider.P1 = nuevaUbicacion;
+    (*sprite).collider.P2 = {nuevaUbicacion.x + spriteSheet.spriteWidth, nuevaUbicacion.y + spriteSheet.spriteHeight};
 }
 
 // Ubica el Sprite en el borde opuesto de la dirección que se indica ya que se asume que se ha escapado
@@ -694,6 +702,28 @@ void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
         break;
     }
     RellocateSprite(&(*sprite), nuevaUbicacion);
+}
+
+
+// Version de RellocateSpriteOnBorderEscape con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
+// (Colision de ataque de la nutria por ejemplo)
+void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion, SpriteSheet spriteSheet){
+    PuntoCoord nuevaUbicacion;
+    switch(direccion){
+        case ARRIBA:
+            nuevaUbicacion = {(*sprite).collider.P1.x,VENTANA_Y};
+        break;
+        case DERECHA:
+            nuevaUbicacion = {0.0f-spriteSheet.spriteWidth,(*sprite).collider.P1.y};
+        break;
+        case ABAJO:
+            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-spriteSheet.spriteWidth};
+        break;
+        case IZQUIERDA:
+            nuevaUbicacion = {VENTANA_X,(*sprite).collider.P1.y};
+        break;
+    }
+    RellocateSprite(&(*sprite), nuevaUbicacion, spriteSheet);
 }
 
 // Actualiza las coordenadas de un Collider
@@ -879,14 +909,15 @@ void AsignarVelocidadAleatoriaSerpiente(Serpiente *serpiente){
     (*serpiente).animMovimiento.velocidad = 0.25+(varianteVelocidad*0.25);
 }
 
-// Seleccionar ubicación de aparición y mover allí la serpiente siempre que haya plataforma para ello
+// Seleccionar ubicación de aparición y mover allí la serpiente
 void SpawnSerpiente(Serpiente *serpiente){
-    printf("SPAWN SERPTIENTE\n");
+    // printf("SPAWN SERPIENTE\n");
     AsignarVelocidadAleatoriaSerpiente(&(*serpiente));
-    switch(GenerarNumeroAleatorio(jugadores[jugadorActual].dificultadActual >= 5 ? 5 : 10)){
-        //Dificultad 5 -> 40% de posibilidades de salir en el arbusto
-        //Resto de dificultades (en principio 3 y 4) -> 20% de posibilidades de salir en el arbusto
+    switch(GenerarNumeroAleatorio(jugadores[jugadorActual].dificultadActual >= 5 ? 8 : 3)){
+        //Dificultad 5 -> (2/8)*100 -> 25% de posibilidades de salir en el arbusto -> 75% tronco 
+        //Resto de dificultades (en principio 3 y 4) -> (2/3)*100 -> 66.6% de posibilidades de salir en el arbusto -> 33.3% tronco
         case 0:
+            //Fila arbustos desde la derecha
             (*serpiente).direccion = IZQUIERDA;
             (*serpiente).sprite.collider.P1.x = VENTANA_X;
             (*serpiente).sprite.collider.P2.x = VENTANA_X+(serpienteSpriteSheet.spriteWidth);
@@ -894,6 +925,7 @@ void SpawnSerpiente(Serpiente *serpiente){
             (*serpiente).sprite.collider.P2.y = VENTANA_Y-(SPRITE_SIZE*7);
         break;
         case 1:
+            //Fila arbustos desde la izquierda
             (*serpiente).direccion = DERECHA;
             (*serpiente).sprite.collider.P1.x = -serpienteSpriteSheet.spriteWidth;
             (*serpiente).sprite.collider.P2.x = 0;
@@ -902,7 +934,8 @@ void SpawnSerpiente(Serpiente *serpiente){
             
         break;
         default:
-            printf("FILA TRONCOS\n");
+            //Fila troncos_2 desde la izquierda
+            // printf("FILA TRONCOS\n");
             (*serpiente).direccion = DERECHA;
             (*serpiente).sprite.collider.P1.x = -serpienteSpriteSheet.spriteWidth;
             (*serpiente).sprite.collider.P2.x = 0;
@@ -912,7 +945,7 @@ void SpawnSerpiente(Serpiente *serpiente){
     }
 }
 
-// Inicializar valores por defecto de las serpientes
+// Inicializar valores por defecto de las serpientes y las genera en caso de ser visibles
 void InicializarSerpientes(){
     for(int i = 0; i < maxSerpientes; i++){
         serpientes[i].direccion = DERECHA;
@@ -953,42 +986,104 @@ void InicializarSerpientes(){
     }
 }
 
-// Inicializar valores por defecto de la nutria
+// Asigna la velocidad de movimiento y animación de la nutria 
+// en funcion de la fila del rio donde haya aparecido
+void AsignarVelocidadNutria(FilaRio filaRioSpawn){
+    switch (filaRioSpawn){
+        case FILA_RIO_4:
+            nutria.animMovimiento.velocidad = troncos_3[0].velocidadMovimiento+0.5;
+        break;
+        case FILA_RIO_3:
+            nutria.animMovimiento.velocidad = tortugas_2[0].velocidadMovimiento+0.5;
+        break;
+        case FILA_RIO_2:
+            nutria.animMovimiento.velocidad = troncos_2[0].velocidadMovimiento+0.5;
+        break;
+        case FILA_RIO_1:
+            nutria.animMovimiento.velocidad = troncos_1[0].velocidadMovimiento+0.5;
+        break;
+        case FILA_RIO_0:
+            nutria.animMovimiento.velocidad = tortugas_1[0].velocidadMovimiento+0.5;
+        break;
+    }
+    nutria.animMovimiento.duracion = 1500 - nutria.animMovimiento.velocidad;
+}
+
+// Seleccionar ubicación de aparición y mover allí la nutria
+void SpawnNutria(){
+    // printf("SPAWN NUTRIA\n");
+    FilaRio filaRioSpawn;
+    int random = GenerarNumeroAleatorio(jugadores[jugadorActual].dificultadActual >= 5 ? FILA_RIO_T-1 : FILA_RIO_T-3);
+
+    //Dificultad 5 -> Todas las filas del rio
+    //Resto de dificultades (en principio 3 y 4) -> Solo en filas de troncos
+    // printf("Random %d\n",random);
+    switch(random){
+        case 0:
+        case 1:
+        case 2:
+            //Fila de troncos (Empieza desde borde izquierdo)
+            // printf("Nutria Fila Troncos\n");
+            nutria.direccion = DERECHA;
+            nutria.sprite.collider.P1.x = -nutriaSpriteSheet.spriteWidth;
+            nutria.sprite.collider.P2.x = 0;
+        break;
+        case 3:
+        case 4:
+            //Fila de tortugas (Empieza desde borde derecho)
+            // printf("Nutria Fila Tortugas\n");
+            nutria.direccion = IZQUIERDA;
+            nutria.sprite.collider.P1.x = VENTANA_X;
+            nutria.sprite.collider.P2.x = VENTANA_X+nutriaSpriteSheet.spriteWidth;
+        break;
+    }
+    
+    // Esto se hace a modo de traduccion para facilitar la generación del random dependiendo del nivel.
+    // Ya que el resto de números coinciden con sus respectivas filas (la 2 por ejemplo es una fila de troncos)
+    // No hace falta "traducirlas" para calcular la altura de la ubicación
+    if(random == 0 || random == 4){
+        filaRioSpawn = (FilaRio) (random == 0 ? 4 : 0);
+    }else{
+        filaRioSpawn = (FilaRio) random;
+    }
+    nutria.sprite.collider.P1.y = VENTANA_Y-(SPRITE_SIZE*(9+filaRioSpawn));
+    nutria.sprite.collider.P2.y = VENTANA_Y-(SPRITE_SIZE*(8+filaRioSpawn));
+
+    //Ubicación y estado colisión de ataque
+    if(nutria.direccion == DERECHA){
+        nutria.colisionAtaque.collider.P1 = {nutria.sprite.collider.P2.x, nutria.sprite.collider.P1.y};
+        nutria.colisionAtaque.collider.P2 = {nutria.sprite.collider.P2.x + nutriaSpriteSheet.spriteWidth, nutria.sprite.collider.P2.y};
+    }else{
+        nutria.colisionAtaque.collider.P2 = {nutria.sprite.collider.P1.x, nutria.sprite.collider.P1.y};
+        nutria.colisionAtaque.collider.P1 = {nutria.sprite.collider.P1.x - nutriaSpriteSheet.spriteWidth, nutria.sprite.collider.P2.y};
+    }
+    nutria.colisionAtaque.isActive = false;
+
+    // Estado Animación y velocidad
+    nutria.sprite.indiceAnimacion = 0;
+    nutria.sprite.tipoAnimacion = 0;
+    AsignarVelocidadNutria(filaRioSpawn);
+
+    ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+}
+
+// Inicializar valores por defecto de la nutria y la genera en caso de ser visible
 void InicializarNutria(){
-    nutria.direccion = DERECHA;
-
-    nutria.animMovimiento.duracion = 150;
-    nutria.animMovimiento.velocidad = 1.5;
-    nutria.animMovimiento.temporizador = last_time;
-
     //Inicializa sprite
-    //TO_DO, CAMBIAR POR SPAWN
-    nutria.sprite.collider = {
-        {(float)(VENTANA_X-nutriaSpriteSheet.spriteWidth*2), 0.0f},
-        {(float)VENTANA_X-nutriaSpriteSheet.spriteWidth, (float)nutriaSpriteSheet.spriteHeight}
-    };
-    nutria.colisionAtaque.collider = {
-        {(float)(VENTANA_X-nutriaSpriteSheet.spriteWidth), 0.0f},
-        {(float)VENTANA_X, (float)nutriaSpriteSheet.spriteHeight}
-    };
-
     nutria.colisionAtaque.isActive = false;
     nutria.colisionAtaque.isVisible = false;
 
-    nutria.sprite.indiceAnimacion = 0;
-    nutria.sprite.tipoAnimacion = 0;
-
-    //En dificultades por debajo de 2, no se activan
+    //En dificultades por debajo de 2, no se activa
     if(jugadores[jugadorActual].dificultadActual <= 2){
         nutria.sprite.isActive = false;
         nutria.sprite.isVisible = false;
     }else{
         //En el resto de dificultades si
-            nutria.sprite.isActive = true;
-            nutria.sprite.isVisible = true;
+        nutria.sprite.isActive = true;
+        nutria.sprite.isVisible = true;
     }
 
-    ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+    SpawnNutria();
 }
 
 // Inicializar valores de las zonas finales donde:
@@ -1833,7 +1928,7 @@ bool DetectarColision(Collider C1, Collider C2) {
          (C1.P1.y <= C2.P2.y);
 }
 
-// Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision 
+// Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision del jugador
 // y comprueba si hay colisión entre ellos
 bool DetectarColisionJugador(Collider object_C) {
     if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
@@ -2164,6 +2259,16 @@ void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float ve
     }
 }
 
+// Version de ActualizarMovimientoObstaculo con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
+// (Colision de ataque de la nutria por ejemplo)
+void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float velocidad, SpriteSheet spriteSheet){
+    if (ComprobarSalidaVentanaSprite(&(*sprite), direccion)){
+        RellocateSpriteOnBorderEscape(&(*sprite), direccion, spriteSheet);
+    }else{
+        MoveCollider(&(*sprite).collider, direccion, velocidad);
+    }
+}
+
 
 //Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
 void ComprobarSumersionTortuga(Tortuga *tortuga){
@@ -2489,13 +2594,16 @@ bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
         indice++;
     } while (indice < 3 && !isSobreTronco);
     
-    printf("contador %d\n",contador);
+    // printf("contador %d\n",contador);
     if(!isSobreTronco){
         indice = 0;
         contador = 0;
         //Está sobrepasando el borde izquierdo?
         if((*serpiente).sprite.collider.P1.x <= 0){
             //Está sobre 2 sprites de tronco?
+            // La comprobación anterior se hace debido a que, fuera de los bordes solo puede haber un tronco, por lo tanto al estar la serpiente
+            // en el borde esperando, justo cuando un segundo trozo del tronco completo se reubica está en contacto con 2 y además tiene un pequeño
+            // margen de espacio para poder moverse antes de llegar al borde derecho del tronco
             do{
                 if(colisionesDetectadas[indice] != -1 && troncos_2[colisionesDetectadas[indice]].sprite.isVisible){
                     contador++;
@@ -2506,6 +2614,7 @@ bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
         }else{
             //Está sobrepasando el borde derecho?
             if((*serpiente).sprite.collider.P2.x >= VENTANA_X){
+                //Fuerza el movimiento a la derecha para evitar "limbo"
                 (*serpiente).direccion = DERECHA;
                 isSobreTronco = true;
             }
@@ -2536,7 +2645,7 @@ bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
     return isSobreTronco;
 }
 
-// Actualiza los estados de la serpiente
+// Actualiza los estados de una serpiente
 // -Movimiento
 // -Salida de pantalla
 // -Respawn
@@ -2603,11 +2712,112 @@ void ActualizarEstadoSerpiente(Serpiente *serpiente){
     }
 }
 
-
+// Actualiza los estados de todas las serpientes
 void ActualizarEstadoSerpientes(){
     for (int i = 0; i < maxSerpientes; i++){
         ActualizarEstadoSerpiente(&serpientes[i]);
     }
+}
+
+// Devuelve el bool correspondiente después de determinar si el ataque de la nutria está en contacto con el sprite pasado por parámetro
+// Util para indicar si se está acercando al rango de ataque
+bool ComprobarColisionAtaqueNutria(Sprite sprite){
+    return (DetectarColision(nutria.colisionAtaque.collider , sprite.collider) && sprite.isVisible);
+}
+
+// Devuelve el bool correspondiente después de determinar si la nutria está en contacto con el sprite pasado por parámetro
+// Util para indicar si se la nutria debe ejecutar su ataque
+bool ComprobarColisionNutria(Sprite sprite){
+    return (DetectarColision(nutria.sprite.collider , sprite.collider) && sprite.isVisible);
+}
+
+// Comprueba si debe ejecutar el ataque de la nutria, matando así al jugador
+void EjecutarAtaqueNutria(){
+    //Si la nutria asoma por lo menos la mitad de su sprite por pantalla y el el jugador esta a rango del ataque de la nutria
+    if(DetectarColisionJugador(nutria.colisionAtaque.collider) && nutria.sprite.collider.P2.x >= nutriaSpriteSheet.spriteWidth/2 && nutria.sprite.collider.P1.x <= VENTANA_X-nutriaSpriteSheet.spriteWidth/2){
+        MatarJugador();
+    }
+}
+
+// Actualiza los estados de la nutria
+void ActualizarEstadoNutria(){
+    int indiceColisionAtaque = 0;
+    bool isColisionAtaque = false;
+    // Se resta 9 para identificar el numero de fila en base al rio (La primera fila del rio FILA_RIO_0 es la 9, pero su valor de enum es 0)
+    FilaRio filanutria = (FilaRio)(GetFilaPantallaSprite(nutria.sprite)-9);
+    // Detectar colisiones en la fila de la nutria
+    // Empieza con la detección de colisión de la zona de ataque de la nutria. El indice que se almacene servirá 
+    // para calcular el resto de colisiones y evitar repetir bucles
+    do{
+        switch (filanutria){
+            case FILA_RIO_4:
+                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_3[indiceColisionAtaque].sprite);
+            break;
+            case FILA_RIO_3:
+                isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_2[indiceColisionAtaque].sprite);
+            break;
+            case FILA_RIO_2:
+                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_2[indiceColisionAtaque].sprite);
+            break;
+            case FILA_RIO_1:
+                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_1[indiceColisionAtaque].sprite);
+            break;
+            case FILA_RIO_0:
+                isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_1[indiceColisionAtaque].sprite);
+            break;
+        }
+        indiceColisionAtaque++;
+    } while (indiceColisionAtaque < VENTANA_COLUMNAS && !isColisionAtaque);
+    
+    // Si el ataque está en contacto
+    if(isColisionAtaque){
+        //Animacion nutria cerca de morder
+        if(HacerCadaX(&nutria.animMovimiento.temporizador, nutria.animMovimiento.duracion)){
+            AvanzarSpriteAnimado(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+            ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+        }
+
+        //Colision del cuerpo de la nutria con obstaculo
+        // printf("indiceColisionAtaque %d\n", indiceColisionAtaque);
+        switch (filanutria){
+            case FILA_RIO_4:
+                if(ComprobarColisionNutria(troncos_3[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                    nutria.colisionAtaque.isActive = true;
+                }
+            break;
+            case FILA_RIO_3:
+                if(ComprobarColisionNutria(tortugas_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                    nutria.colisionAtaque.isActive = true;
+                }
+            break;
+            case FILA_RIO_2:
+                if(ComprobarColisionNutria(troncos_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                    nutria.colisionAtaque.isActive = true;
+                }
+            break;
+            case FILA_RIO_1:
+                if(ComprobarColisionNutria(troncos_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                    nutria.colisionAtaque.isActive = true;
+                }
+            break;
+            case FILA_RIO_0:
+                if(ComprobarColisionNutria(tortugas_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                    nutria.colisionAtaque.isActive = true;
+                }
+            break;
+        }
+
+        if(nutria.colisionAtaque.isActive){
+            EjecutarAtaqueNutria();
+            SpawnNutria();
+        }
+    }
+
+    
+    
+    //Movimiento de la nutria
+    ActualizarMovimientoObstaculo(&nutria.sprite, nutria.direccion, nutria.animMovimiento.velocidad);
+    ActualizarMovimientoObstaculo(&nutria.colisionAtaque, nutria.direccion, nutria.animMovimiento.velocidad, nutriaSpriteSheet);
 }
 
 //Actualización del estado de la animacion de muerte del jugador y sus consecuencias
@@ -2850,6 +3060,7 @@ void ActualizarEstadoJuego(){
 
     ActualizarEstadoMoscaCroc();
     ActualizarEstadoSerpientes();
+    ActualizarEstadoNutria();
 
     ActualizarEstadoJugador();
 }
@@ -3355,7 +3566,18 @@ void DibujarSerpientes(){
 }
 
 void DibujarNutria(){
-    DrawSprite(nutria.sprite);
+    esat::SpriteTransform st;
+    if(nutria.direccion == IZQUIERDA){
+        esat::SpriteTransformInit(&st);
+        // Invertir la escala hace que se dibuje a la inversa
+        st.scale_x = -1;
+        // Por lo tanto la x se debe de ajustar en el caso de que se invierta
+        st.x = nutria.sprite.collider.P1.x + nutriaSpriteSheet.spriteWidth;
+        st.y = nutria.sprite.collider.P1.y;
+        DrawSprite(nutria.sprite, st);
+    }else{
+        DrawSprite(nutria.sprite);
+    }
     DrawSprite(nutria.colisionAtaque);
 }
 
