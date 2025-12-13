@@ -1636,6 +1636,7 @@ void InicializarNivel(){
     // Inicialización de cosas interactivas durante la ejecución del nivel
     InicializarRio();
     InicializarVehiculos();
+
     InicializarCronometro();
 
     InicializarMoscaCroc();
@@ -1708,6 +1709,7 @@ void MatarJugador(){
     jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion = 0;
     jugadores[jugadorActual].ranaJugador.sprite.indiceAnimacion = 0;
     jugadores[jugadorActual].animMuerte.temporizador = last_time;
+    cronometro.isTiempoVisible = false;
     cronometro.tiempoRestante = cronometro.contador;
     cronometro.isBarraParada = true;
     ActualizarSprite(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
