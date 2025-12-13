@@ -140,8 +140,26 @@ struct Rana{
 
 struct Jugador{
     Rana ranaJugador;
-    int puntuacion = 0, vidas = 0, nivelActual = 1, dificultadActual = 1, filaPuntuacion = 0;
+    //Puntuaciones -> Actual y la que tiene en cuenta la posible vida extra
+    int puntuacion = 0, puntuacion_VE = 0;
+    //Vidas actuales del jugador
+    int vidas = 0;
+    // Numero del nivel actual
+    int nivelActual = 1;
+    // Ultima fila alcanzada en el nivel actual
+    int filaPuntuacion = 0;
+    // Dificultad actual del nivel (1-5)
+    unsigned char dificultadActual = 1;
+    // Valores de animación de la muerte del jugador
     Animacion animMuerte;
+};
+
+struct RanaBonus{
+    Rana rana;
+    int puntuacion = 200;
+    bool isRotando, isBug;
+    Animacion animRotar;
+    Animacion accionarSalto;
 };
 
 struct Vehiculo{
@@ -320,6 +338,8 @@ Serpiente serpientes[maxSerpientes];
 
 Nutria nutria;
 
+RanaBonus ranaBonus;
+
 //-- Estructuras
 const int tamanyoFilaArbustos = 14;
 
@@ -418,6 +438,14 @@ void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet, int spriteSheetCoord
     }
 }
 
+// Dado un sprite, devuelve su número de fila en posición vertical contando desde abajo
+float GetFilaPantallaSprite(Sprite s){
+    return (VENTANA_Y - s.collider.P1.y)/SPRITE_SIZE;
+}
+// Dado un sprite, devuelve su número de columna en posición horizontal contando desde la izquierda
+float GetColumnaPantallaSprite(Sprite s){
+    return s.collider.P1.x/SPRITE_SIZE;
+}
 
 //Dada una coordenada (formato collider) actual y una esperada final, devuelve true si son iguales y false si son distintas
 bool AreColliderEqual(Collider c1, Collider c2){
@@ -695,7 +723,7 @@ void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
             nuevaUbicacion = {0.0f-esat::SpriteWidth((*sprite).imagen),(*sprite).collider.P1.y};
         break;
         case ABAJO:
-            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-esat::SpriteWidth((*sprite).imagen)};
+            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-esat::SpriteHeight((*sprite).imagen)};
         break;
         case IZQUIERDA:
             nuevaUbicacion = {VENTANA_X,(*sprite).collider.P1.y};
@@ -717,7 +745,7 @@ void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion, SpriteSh
             nuevaUbicacion = {0.0f-spriteSheet.spriteWidth,(*sprite).collider.P1.y};
         break;
         case ABAJO:
-            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-spriteSheet.spriteWidth};
+            nuevaUbicacion = {(*sprite).collider.P1.x,0.0f-spriteSheet.spriteHeight};
         break;
         case IZQUIERDA:
             nuevaUbicacion = {VENTANA_X,(*sprite).collider.P1.y};
@@ -1054,8 +1082,8 @@ void SpawnNutria(){
         nutria.colisionAtaque.collider.P1 = {nutria.sprite.collider.P2.x, nutria.sprite.collider.P1.y};
         nutria.colisionAtaque.collider.P2 = {nutria.sprite.collider.P2.x + nutriaSpriteSheet.spriteWidth, nutria.sprite.collider.P2.y};
     }else{
-        nutria.colisionAtaque.collider.P2 = {nutria.sprite.collider.P1.x, nutria.sprite.collider.P1.y};
-        nutria.colisionAtaque.collider.P1 = {nutria.sprite.collider.P1.x - nutriaSpriteSheet.spriteWidth, nutria.sprite.collider.P2.y};
+        nutria.colisionAtaque.collider.P1 = {nutria.sprite.collider.P1.x - nutriaSpriteSheet.spriteWidth, nutria.sprite.collider.P1.y};
+        nutria.colisionAtaque.collider.P2 = {nutria.sprite.collider.P1.x, nutria.sprite.collider.P2.y};
     }
     nutria.colisionAtaque.isActive = false;
 
@@ -1084,6 +1112,41 @@ void InicializarNutria(){
     }
 
     SpawnNutria();
+}
+
+// Seleccionar ubicación de aparición y mover allí la rana bonus con los valores correspondientes
+void SpawnRanaBonus(){
+    // Ubicacion
+    // Siempre que se invoque, aparecerá en la primera posicion del primer tronco de la primera fila.
+    ranaBonus.rana.sprite.collider = troncos_1[0].sprite.collider;
+    ranaBonus.rana.finSalto = ranaBonus.rana.sprite.collider;
+
+    // Visibilidad
+    ranaBonus.rana.sprite.isActive = true;
+    ranaBonus.rana.sprite.isVisible = false;
+    ranaBonus.isBug = true;
+
+    // Sprite y estados
+    ranaBonus.isRotando = false;
+    ranaBonus.rana.isJumping = false;
+    ranaBonus.rana.direccion = DERECHA;
+    ranaBonus.rana.sprite.tipoAnimacion = (int) DERECHA;
+    ranaBonus.rana.sprite.indiceAnimacion = (int) ranaBonus.rana.isJumping;
+}
+
+void InicializarRanaBonus(){
+    ranaBonus.puntuacion = 200;
+    // Valores animación de giro
+    ranaBonus.animRotar.duracion =  1000;
+    ranaBonus.animRotar.temporizador =  last_time;
+    ranaBonus.animRotar.velocidad =  ranaBonus.animRotar.duracion/3;
+
+    // Valores accion de salto
+    ranaBonus.accionarSalto.duracion =  1000;
+    ranaBonus.accionarSalto.temporizador =  last_time;
+    ranaBonus.accionarSalto.velocidad =  ranaBonus.accionarSalto.duracion;
+
+    SpawnRanaBonus();
 }
 
 // Inicializar valores de las zonas finales donde:
@@ -1271,11 +1334,16 @@ void InicializarFilaRio(FilaRio filaRio){
             }
         break;
         case FILA_RIO_1:
-            if(jugadores[jugadorActual].dificultadActual <= 1){
-                InicializarFilaTroncodrilos(troncos_1, 3, 2, 1.5, filaRio);
+            if(areCollidersVisible){
+                InicializarFilaTroncodrilos(troncos_1, 3, 2, 0, filaRio);
             }else{
-                InicializarFilaTroncodrilos(troncos_1, 3, 2+(jugadores[jugadorActual].dificultadActual), 1.5*(jugadores[jugadorActual].dificultadActual/2.5f), filaRio);
+                if(jugadores[jugadorActual].dificultadActual <= 1){
+                    InicializarFilaTroncodrilos(troncos_1, 3, 2, 1.5, filaRio);
+                }else{
+                    InicializarFilaTroncodrilos(troncos_1, 3, 2+(jugadores[jugadorActual].dificultadActual), 1.5*(jugadores[jugadorActual].dificultadActual/2.5f), filaRio);
+                }
             }
+
         break;
         case FILA_RIO_0:
             if(jugadores[jugadorActual].dificultadActual <= 1){
@@ -1619,7 +1687,7 @@ void SpawnJugador(){
 void InicializarJugador(){
     //Propiedades del jugador al inicio de la partida
     jugadores[jugadorActual].ranaJugador.sprite.isActive = true;
-    jugadores[jugadorActual].puntuacion = false;
+    jugadores[jugadorActual].puntuacion = 0;
     jugadores[jugadorActual].vidas = 3;
     jugadores[jugadorActual].dificultadActual = 1;
     jugadores[jugadorActual].nivelActual = 1;
@@ -1642,6 +1710,7 @@ void InicializarNivel(){
     InicializarMoscaCroc();
     InicializarSerpientes();
     InicializarNutria();
+    InicializarRanaBonus();
 
     SpawnJugador();
 }
@@ -1774,12 +1843,61 @@ void ComprobarCreditos(){
     }
 }
 
-void AvanzarNivel(){
-    // Suma puntos, pero si al sumar se pasa del maximo de puntos, entonces se asegura de asignar el valor máximo
-    jugadores[jugadorActual].puntuacion += 1000;
-    if(jugadores[jugadorActual].puntuacion > 99999){
+//ManejoVidasJugador
+void SumarVidasJugador(int vidas){
+    jugadores[jugadorActual].vidas += vidas;
+    if(jugadores[jugadorActual].vidas >= 10){
+        jugadores[jugadorActual].vidas = 10;
+    }
+}
+void RestarVidasJugador(int vidas){
+    jugadores[jugadorActual].vidas -= vidas;
+    if(jugadores[jugadorActual].vidas <= 0){
+        jugadores[jugadorActual].vidas = 0;
+    }
+}
+
+//Manejo puntuacion jugador
+void SumarPuntosJugador(int puntos){
+    jugadores[jugadorActual].puntuacion += puntos;
+    jugadores[jugadorActual].puntuacion_VE += puntos;
+
+    if(jugadores[jugadorActual].puntuacion >= 99999){
         jugadores[jugadorActual].puntuacion = 99999;
     }
+
+    if(jugadores[jugadorActual].puntuacion_VE >= 20000){
+        jugadores[jugadorActual].puntuacion_VE -= 20000;
+        SumarVidasJugador(1);
+    }
+}
+
+// Si cumple las condiciones, suma la puntuación correspondiente por avanzar 
+// verticalmente en la pantalla al jugador actual
+void SumarPuntosAvanceVertical(){
+    int filaActual = GetFilaPantallaSprite(jugadores[jugadorActual].ranaJugador.sprite);
+    if(filaActual != 8 && filaActual > jugadores[jugadorActual].filaPuntuacion && jugadores[jugadorActual].ranaJugador.direccion == ARRIBA){
+        jugadores[jugadorActual].filaPuntuacion = filaActual;
+        SumarPuntosJugador(10);
+    }
+}
+
+void RestarPuntosJugador(int puntos){
+    jugadores[jugadorActual].puntuacion -= puntos;
+    jugadores[jugadorActual].puntuacion_VE -= puntos;
+
+    if(jugadores[jugadorActual].puntuacion <= 0){
+        jugadores[jugadorActual].puntuacion = 0;
+    }
+
+    if(jugadores[jugadorActual].puntuacion_VE <= 0){
+        jugadores[jugadorActual].puntuacion_VE = 0;
+    }
+}
+
+void AvanzarNivel(){
+    // Suma puntos, pero si al sumar se pasa del maximo de puntos, entonces se asegura de asignar el valor máximo
+    SumarPuntosJugador(1000);
 
     // Avanza el nivel de dificultar, cada 5 niveles, se resetea a la dificultad del nivel 2
     if(jugadores[jugadorActual].dificultadActual >= 5){
@@ -1841,14 +1959,11 @@ void DetectarControles(){
             //PROTOTIPADO
             //Sumar 10 puntos
             if(esat::IsKeyPressed('P')){
-                jugadores[jugadorActual].puntuacion += 10;
-                if(jugadores[jugadorActual].puntuacion > 99999){
-                    jugadores[jugadorActual].puntuacion = 99999;
-                }
+                SumarPuntosJugador(10);
             }
             //Sumar 1 vida
             if(esat::IsKeyDown('V')){
-                jugadores[jugadorActual].vidas++;
+                SumarVidasJugador(2);
             }
 
             //Matar al jugador
@@ -1910,15 +2025,6 @@ void DetectarControles(){
     }
 }
 
-// Dado un sprite, devuelve su número de fila en posición vertical contando desde abajo
-float GetFilaPantallaSprite(Sprite s){
-    return (VENTANA_Y - s.collider.P1.y)/SPRITE_SIZE;
-}
-// Dado un sprite, devuelve su número de columna en posición horizontal contando desde la izquierda
-float GetColumnaPantallaSprite(Sprite s){
-    return s.collider.P1.x/SPRITE_SIZE;
-}
-
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
 
 /** COLISIONES **/
@@ -1965,7 +2071,7 @@ void DetectarColisionJugadorZonaFinal(){
                 MatarJugador();
             }else{
                 //Suma la puntuación oportuna, cambia el sprite al de 200 puntos y reinicia el temporizador de la animación de puntos
-                jugadores[jugadorActual].puntuacion += moscaCroc.puntuacion;
+                SumarPuntosJugador(moscaCroc.puntuacion);
                 moscaCroc.sprite.isActive = false;
                 moscaCroc.sprite.tipoAnimacion = 0;
                 moscaCroc.sprite.indiceAnimacion = 2;
@@ -1990,9 +2096,11 @@ void DetectarColisionJugadorZonaFinal(){
                         }
 
                         //Puntos por llegar al final
-                        jugadores[jugadorActual].puntuacion += 50;
-                        //Puntos extra por tiempo (Se multiplica primero para no perder información en caso de que el "medio segundo" actual sea impar)
-                        jugadores[jugadorActual].puntuacion += (cronometro.contador*10)/2 ;
+                        SumarPuntosJugador(50);
+                        // 10 Puntos extra por cada segundo sobrante 
+                        // (Se multiplica primero para no perder información en caso de que 
+                        // el "medio segundo" actual del contador sea impar)
+                        SumarPuntosJugador((cronometro.contador*10)/2);
 
                         cronometro.tiempoRestante = cronometro.contador;
                         cronometro.isTiempoVisible=true;
@@ -2745,81 +2853,92 @@ void EjecutarAtaqueNutria(){
 void ActualizarEstadoNutria(){
     int indiceColisionAtaque = 0;
     bool isColisionAtaque = false;
-    // Se resta 9 para identificar el numero de fila en base al rio (La primera fila del rio FILA_RIO_0 es la 9, pero su valor de enum es 0)
-    FilaRio filanutria = (FilaRio)(GetFilaPantallaSprite(nutria.sprite)-9);
-    // Detectar colisiones en la fila de la nutria
-    // Empieza con la detección de colisión de la zona de ataque de la nutria. El indice que se almacene servirá 
-    // para calcular el resto de colisiones y evitar repetir bucles
-    do{
-        switch (filanutria){
-            case FILA_RIO_4:
-                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_3[indiceColisionAtaque].sprite);
-            break;
-            case FILA_RIO_3:
-                isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_2[indiceColisionAtaque].sprite);
-            break;
-            case FILA_RIO_2:
-                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_2[indiceColisionAtaque].sprite);
-            break;
-            case FILA_RIO_1:
-                isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_1[indiceColisionAtaque].sprite);
-            break;
-            case FILA_RIO_0:
-                isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_1[indiceColisionAtaque].sprite);
-            break;
-        }
-        indiceColisionAtaque++;
-    } while (indiceColisionAtaque < VENTANA_COLUMNAS && !isColisionAtaque);
-    
-    // Si el ataque está en contacto
-    if(isColisionAtaque){
-        //Animacion nutria cerca de morder
-        if(HacerCadaX(&nutria.animMovimiento.temporizador, nutria.animMovimiento.duracion)){
-            AvanzarSpriteAnimado(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
-            ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+
+    if(nutria.sprite.isVisible){
+        // Se resta 9 para identificar el numero de fila en base al rio (La primera fila del rio FILA_RIO_0 es la 9, pero su valor de enum es 0)
+        FilaRio filanutria = (FilaRio)(GetFilaPantallaSprite(nutria.sprite)-9);
+        // Detectar colisiones en la fila de la nutria
+        // Empieza con la detección de colisión de la zona de ataque de la nutria. El indice que se almacene servirá 
+        // para calcular el resto de colisiones y evitar repetir bucles
+        do{
+            switch (filanutria){
+                case FILA_RIO_4:
+                    isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_3[indiceColisionAtaque].sprite);
+                break;
+                case FILA_RIO_3:
+                    isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_2[indiceColisionAtaque].sprite);
+                break;
+                case FILA_RIO_2:
+                    isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_2[indiceColisionAtaque].sprite);
+                break;
+                case FILA_RIO_1:
+                    isColisionAtaque = ComprobarColisionAtaqueNutria(troncos_1[indiceColisionAtaque].sprite);
+                break;
+                case FILA_RIO_0:
+                    isColisionAtaque = ComprobarColisionAtaqueNutria(tortugas_1[indiceColisionAtaque].sprite);
+                break;
+            }
+            indiceColisionAtaque++;
+        } while (indiceColisionAtaque < VENTANA_COLUMNAS && !isColisionAtaque);
+        
+        // Si el ataque está en contacto
+        if(isColisionAtaque){
+            //Animacion nutria cerca de morder
+            if(HacerCadaX(&nutria.animMovimiento.temporizador, nutria.animMovimiento.duracion)){
+                AvanzarSpriteAnimado(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+                ActualizarSprite(nutriaSpriteSheet, nutriaSpriteSheet_Coords, &nutria.sprite);
+            }
+
+            //Colision del cuerpo de la nutria con obstaculo
+            // printf("indiceColisionAtaque %d\n", indiceColisionAtaque);
+            switch (filanutria){
+                case FILA_RIO_4:
+                    if(ComprobarColisionNutria(troncos_3[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                        nutria.colisionAtaque.isActive = true;
+                    }
+                break;
+                case FILA_RIO_3:
+                    if(ComprobarColisionNutria(tortugas_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                        nutria.colisionAtaque.isActive = true;
+                    }
+                break;
+                case FILA_RIO_2:
+                    if(ComprobarColisionNutria(troncos_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                        nutria.colisionAtaque.isActive = true;
+                    }
+                break;
+                case FILA_RIO_1:
+                    if(ComprobarColisionNutria(troncos_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                        nutria.colisionAtaque.isActive = true;
+                    }
+                break;
+                case FILA_RIO_0:
+                    if(ComprobarColisionNutria(tortugas_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
+                        nutria.colisionAtaque.isActive = true;
+                    }
+                break;
+            }
+
+            if(nutria.colisionAtaque.isActive){
+                EjecutarAtaqueNutria();
+                SpawnNutria();
+            }
         }
 
-        //Colision del cuerpo de la nutria con obstaculo
-        // printf("indiceColisionAtaque %d\n", indiceColisionAtaque);
-        switch (filanutria){
-            case FILA_RIO_4:
-                if(ComprobarColisionNutria(troncos_3[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
-                    nutria.colisionAtaque.isActive = true;
-                }
-            break;
-            case FILA_RIO_3:
-                if(ComprobarColisionNutria(tortugas_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
-                    nutria.colisionAtaque.isActive = true;
-                }
-            break;
-            case FILA_RIO_2:
-                if(ComprobarColisionNutria(troncos_2[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
-                    nutria.colisionAtaque.isActive = true;
-                }
-            break;
-            case FILA_RIO_1:
-                if(ComprobarColisionNutria(troncos_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
-                    nutria.colisionAtaque.isActive = true;
-                }
-            break;
-            case FILA_RIO_0:
-                if(ComprobarColisionNutria(tortugas_1[indiceColisionAtaque - (nutria.direccion == DERECHA ? 1 : 0)].sprite)){
-                    nutria.colisionAtaque.isActive = true;
-                }
-            break;
-        }
-
-        if(nutria.colisionAtaque.isActive){
-            EjecutarAtaqueNutria();
-            SpawnNutria();
-        }
+        
+        
+        //Movimiento de la nutria
+        ActualizarMovimientoObstaculo(&nutria.sprite, nutria.direccion, nutria.animMovimiento.velocidad);
+        ActualizarMovimientoObstaculo(&nutria.colisionAtaque, nutria.direccion, nutria.animMovimiento.velocidad, nutriaSpriteSheet);
     }
+}
 
-    
-    
-    //Movimiento de la nutria
-    ActualizarMovimientoObstaculo(&nutria.sprite, nutria.direccion, nutria.animMovimiento.velocidad);
-    ActualizarMovimientoObstaculo(&nutria.colisionAtaque, nutria.direccion, nutria.animMovimiento.velocidad, nutriaSpriteSheet);
+void ActualizarEstadoRanaBonus(){
+    if(ranaBonus.isBug){
+        ActualizarSprite(ranaRojaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+    }else{
+        ActualizarSprite(ranaRosaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+    }
 }
 
 //Actualización del estado de la animacion de muerte del jugador y sus consecuencias
@@ -2838,16 +2957,6 @@ void ActualizarMuerteJugador(){
             AvanzarSpriteAnimado(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
             ActualizarSprite(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
         }
-    }
-}
-
-// Si cumple las condiciones, suma la puntuación correspondiente por avanzar 
-// verticalmente en la pantalla al jugador actual
-void SumarPuntosAvanceVertical(){
-    int filaActual = GetFilaPantallaSprite(jugadores[jugadorActual].ranaJugador.sprite);
-    if(filaActual != 8 && filaActual > jugadores[jugadorActual].filaPuntuacion && jugadores[jugadorActual].ranaJugador.direccion == ARRIBA){
-        jugadores[jugadorActual].filaPuntuacion = filaActual;
-        jugadores[jugadorActual].puntuacion += 10;
     }
 }
 
@@ -3581,10 +3690,18 @@ void DibujarNutria(){
         DrawSprite(nutria.sprite);
     }
     DrawSprite(nutria.colisionAtaque);
+    // printf("ALTURA NUTRIA ATAQUE\n");
+    // printf("P1 %.2f | P2 %.2f\n",nutria.colisionAtaque.collider.P1.y,nutria.colisionAtaque.collider.P2.y);
 }
 
-void DibujarJugadores(){
+void DibujarRanaBonus(){
+    DrawSprite(ranaBonus.rana.sprite);
+    DrawCollider(ranaBonus.rana.finSalto);
+}
+
+void DibujarJugador(){
     DrawSprite(jugadores[jugadorActual].ranaJugador.sprite, true);
+    DrawCollider(jugadores[jugadorActual].ranaJugador.finSalto);
 }
 
 void DibujarJuego(){
@@ -3598,9 +3715,9 @@ void DibujarJuego(){
     DibujarMoscaCroc();
     DibujarSerpientes();
     DibujarNutria();
-    
+    DibujarRanaBonus();
     //Jugador
-    DibujarJugadores();
+    DibujarJugador();
 }
 
 // Se encarga de dibujar la cabecera de la UI por completo
@@ -3625,7 +3742,7 @@ void DibujarCabecera(){
 //Dibuja la cantidad de vidas del jugador actual
 void DibujarVidas(){
     //El limite del bucle será vidas o en su defecto 10 si vidas es mayor o igual a 10
-    for(int i = 1; i < (jugadores[jugadorActual].vidas >= 10 ? 10 : jugadores[jugadorActual].vidas); i++){
+    for(int i = 1; i < jugadores[jugadorActual].vidas; i++){
         esat::DrawSprite(vidaSprite,i*esat::SpriteWidth(vidaSprite),VENTANA_Y-SPRITE_SIZE);
     }
 }
