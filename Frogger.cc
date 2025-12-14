@@ -342,6 +342,8 @@ Sprite zonasFinales[maxZonasFinales];
 
 const int maxRanasFinales = 5;
 Sprite ranasFinales[maxRanasFinales];
+Animacion animAvanceNivel;
+bool isAnimAvanceNivel = false;
 
 // Animales
 // Solo permite un moscaCroc activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
@@ -1725,6 +1727,7 @@ void InicializarCronometro(){
 // Pensado para utilizarse después de cada muerte para ubicar al jugador en su posicion inicial o despúes de inicializar un nivel
 void SpawnJugador(){
     
+    jugadores[jugadorActual].ranaJugador.sprite.isVisible = true;
     jugadores[jugadorActual].ranaJugador.sprite.isActive = true;
     jugadores[jugadorActual].ranaJugador.direccion = ARRIBA;
     jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion = 0;
@@ -2036,6 +2039,16 @@ void RestarPuntosJugador(int puntos){
     }
 }
 
+void InicializarAvanceNivel(){
+    jugadores[jugadorActual].ranaJugador.sprite.isVisible = false;
+    jugadores[jugadorActual].ranaJugador.sprite.isActive = false;
+    cronometro.isBarraParada = true;
+    animAvanceNivel.duracion = 4000;
+    animAvanceNivel.velocidad = animAvanceNivel.duracion/maxRanasFinales;
+    animAvanceNivel.temporizador = last_time;
+    isAnimAvanceNivel = true;
+}
+
 void AvanzarNivel(){
     // Suma puntos, pero si al sumar se pasa del maximo de puntos, entonces se asegura de asignar el valor máximo
     SumarPuntosJugador(1000);
@@ -2050,6 +2063,7 @@ void AvanzarNivel(){
     // En la UI mostrará hasta un máximo de 10 niveles aunque el valor siga aumentando
     jugadores[jugadorActual].nivelActual++;
 
+    cronometro.isTiempoVisible = false;
     InicializarNivel();
 }
 
@@ -2121,7 +2135,7 @@ void DetectarControles(){
 
             //Avanzar nivel
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Keypad_8)){
-                AvanzarNivel();
+                InicializarAvanceNivel();
             }
 
         break;
@@ -2266,7 +2280,7 @@ void DetectarColisionJugadorZonaFinal(){
                 printf("VICTORIA | AVANZANDO NIVEL");
                 
                 //TO_DO Sustituir por IniciarAnimacionAvanceNivel
-                AvanzarNivel();
+                InicializarAvanceNivel();
             }
         }
     }
@@ -3314,6 +3328,28 @@ void ActualizarMuerteJugador(){
     }
 }
 
+// Se encarga de efectuar correctamente la animación de avance de nivel
+void ActualizarEstadoAvanceNivel(){
+    int indice = 0;
+    if(HacerCadaX(&animAvanceNivel.temporizador, animAvanceNivel.velocidad)){
+        //Comprueba cual es el siguiente que falta por cambiar su sprite
+        while(indice < maxRanasFinales && ranasFinales[indice].indiceAnimacion == 2){
+            indice++;
+        }
+
+        //Si están todos cambiados, avanza de nivel
+        if(indice >= maxRanasFinales){
+            isAnimAvanceNivel = false;
+            AvanzarNivel();
+        }else{
+            //Si no, actualiza el que ha detectado que falta por cambiar
+            ranasFinales[indice].indiceAnimacion = 2;
+            ActualizarSprite(ranaFinSpriteSheet, ranaFinSpriteSheet_Coords, &ranasFinales[indice]);
+        }
+    }
+    
+}
+
 void ActualizarEstadoJugador(){
     ComprobarColisionesJugador();
 
@@ -3514,7 +3550,11 @@ void ActualizarEstadoJuego(){
     ActualizarEstadoNutria();
     ActualizarEstadoRanaBonus();
 
-    ActualizarEstadoJugador();
+    if(isAnimAvanceNivel){
+        ActualizarEstadoAvanceNivel();
+    }else{
+        ActualizarEstadoJugador();
+    }
 }
 
 void ActualizarEstados(){
