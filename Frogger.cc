@@ -1,7 +1,4 @@
-﻿#include <esat_extra/soloud/soloud.h>
-#include <esat_extra/soloud/soloud_wav.h>
-
-#include <esat/draw.h>
+﻿#include <esat/draw.h>
 
 #include <esat/window.h>
 #include <esat/input.h>
@@ -76,16 +73,6 @@ enum EstadoRanaBonus{
 enum Gamemode{
     NORMAL_SINGLE,
     NORMAL_MULTI,
-};
-
-enum Musica{
-    M_INTRO,
-    M_TOTAL
-};
-
-enum SFX{
-    SFX_ADDCREDIT,
-    SFX_TOTAL
 };
 
 /* STRUCTS */
@@ -255,13 +242,6 @@ double current_time,last_time;
 //-- Prototipado
 bool areCollidersVisible = false;
 
-//-- Sonido
-//Canal de audio
-SoLoud::Soloud canalAudio;
-//Variables canal audio.
-// SoLoud::Wav musica[M_TOTAL];
-SoLoud::Wav sfx[SFX_TOTAL];
-
 //-- SpriteSheets y arrays de coordenadas del mismo
 // Estos arrays no se incluyen en el propio spriteSheet para poder inicializar su tamaño
 // evitando problemas de acceso a memoria al no tener la capacidad de usar gestión dinámica de memoria
@@ -330,12 +310,23 @@ const unsigned char maxRankingScores = 5;
 int rankingScores[maxRankingScores] = {2350,10,0,0,0};
 
 Pantalla pantallaActual = INTRO;
+
+//Animaciones
+
 Animacion animIntro = {37000,1000,0};
 //Booleana para detectar si la animacion vertical ha empezado
 bool isAnimIntroVIniciada = false;
 Animacion animPuntuaciones = {10000,1000,0};
 Animacion animRanking = {6000,1000,0};
 Animacion animInsert = {6000,1000,0};
+
+Animacion animAvanceNivel;
+bool isAnimAvanceNivel = false;
+
+Animacion animGameOver;
+bool isAnimGameOver = false;
+Collider barridoGameOver_Azul;
+Collider barridoGameOver_Negro;
 
 // Duracion, velocidad de avance y temporizador del 
 // contador para que el jugador llegue a una zona final.
@@ -363,8 +354,6 @@ Sprite zonasFinales[maxZonasFinales];
 
 const int maxRanasFinales = 5;
 Sprite ranasFinales[maxRanasFinales];
-Animacion animAvanceNivel;
-bool isAnimAvanceNivel = false;
 
 // Animales
 // Solo permite un moscaCroc activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
@@ -1961,6 +1950,27 @@ void ComprobarCreditos(){
 }
 
 //ManejoVidasJugador
+void InicializarGameOver(){
+    cronometro.tiempoRestante = cronometro.contador;
+    cronometro.isBarraParada = true;
+
+    animGameOver.duracion = 2000;
+    animGameOver.velocidad = VENTANA_X/((animGameOver.duracion-1000)/(1000.0f/FPS));
+    animGameOver.temporizador = last_time;
+
+    barridoGameOver_Azul = {
+        {VENTANA_X, 0},
+        {VENTANA_X, (VENTANA_Y)/2}
+    };
+
+    barridoGameOver_Negro = {
+        {VENTANA_X, (VENTANA_Y)/2},
+        {VENTANA_X, VENTANA_Y-SPRITE_SIZE}
+    };
+
+    isAnimGameOver = true;
+}
+
 void SumarVidasJugador(int vidas){
     jugadores[jugadorActual].vidas += vidas;
     if(jugadores[jugadorActual].vidas >= 10){
@@ -1976,8 +1986,7 @@ void RestarVidasJugador(int vidas){
     switch (gamemode){
         case NORMAL_SINGLE:
             if(jugadores[jugadorActual].vidas <= 0){
-                GuardarPuntuacion();
-                ComprobarCreditos();
+                InicializarGameOver();
             }else{
                 SpawnJugador();
             }
@@ -1985,16 +1994,7 @@ void RestarVidasJugador(int vidas){
 
         case NORMAL_MULTI:
             if(jugadores[0].vidas <= 0 && jugadores[1].vidas <= 0){
-                for(int i = 0; i < maxJugadores; i++){
-                    jugadorActual = i;
-                    GuardarPuntuacion();
-                }
-                if(jugadores[0].puntuacion >= jugadores[1].puntuacion){
-                    jugadorActual = 0;
-                }else{
-                    jugadorActual = 1;
-                }
-                ComprobarCreditos();
+                InicializarGameOver();
             }else{
                 jugadorActual = ++jugadorActual % maxJugadores;
                 if(jugadores[jugadorActual].vidas <= 0){
@@ -2064,6 +2064,7 @@ void InicializarAvanceNivel(){
     jugadores[jugadorActual].ranaJugador.sprite.isVisible = false;
     jugadores[jugadorActual].ranaJugador.sprite.isActive = false;
     cronometro.isBarraParada = true;
+
     animAvanceNivel.duracion = 4000;
     animAvanceNivel.velocidad = animAvanceNivel.duracion/maxRanasFinales;
     animAvanceNivel.temporizador = last_time;
@@ -2096,7 +2097,6 @@ void DetectarControles(){
         case INSERT:
         case RANKING:
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_F1)){
-                canalAudio.play(sfx[SFX_ADDCREDIT]);
                 SumarCreditos(1);
                 ComprobarCreditos();
             }
@@ -2158,6 +2158,11 @@ void DetectarControles(){
             //Avanzar nivel
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Keypad_8)){
                 InicializarAvanceNivel();
+            }
+
+            //Game Over
+            if(esat::IsSpecialKeyDown(esat::kSpecialKey_Keypad_2)){
+                InicializarGameOver();
             }
 
         break;
@@ -3563,20 +3568,50 @@ void ActualizarEstadoIntro(){
 }
 
 
-void ActualizarEstadoJuego(){
-    ActualizarEstadoRio();
-    ActualizarEstadoVehiculos();
-
-    ActualizarEstadoMoscaCroc();
-    ActualizarEstadoSerpientes();
-    ActualizarEstadoNutria();
-    ActualizarEstadoRanaBonus();
-
-    if(isAnimAvanceNivel){
-        ActualizarEstadoAvanceNivel();
+void ActualizarEstadoGameOver(){
+    if(HacerDuranteX(&animGameOver.temporizador, animGameOver.duracion)){
+        if(GetContadorFromTemp(animGameOver.temporizador, 1000) >= 1){
+            barridoGameOver_Azul.P1.x -= animGameOver.velocidad;
+            barridoGameOver_Negro.P1.x -= animGameOver.velocidad;
+        }
     }else{
-        ActualizarEstadoJugador();
+        isAnimGameOver = false;
+        switch (gamemode){
+            case NORMAL_SINGLE:
+                GuardarPuntuacion();
+                ComprobarCreditos();
+            break;
+
+            case NORMAL_MULTI:
+                for(int i = 0; i < maxJugadores; i++){
+                    jugadorActual = i;
+                    GuardarPuntuacion();
+                }
+                ComprobarCreditos();
+            break;
+        }
     }
+}
+
+void ActualizarEstadoJuego(){
+    if(isAnimGameOver){
+        ActualizarEstadoGameOver();
+    }else{
+        ActualizarEstadoRio();
+        ActualizarEstadoVehiculos();
+
+        ActualizarEstadoMoscaCroc();
+        ActualizarEstadoSerpientes();
+        ActualizarEstadoNutria();
+        ActualizarEstadoRanaBonus();
+
+        if(isAnimAvanceNivel){
+            ActualizarEstadoAvanceNivel();
+        }else{
+            ActualizarEstadoJugador();
+        }
+    }
+    
 }
 
 void ActualizarEstados(){
@@ -4105,14 +4140,25 @@ void DibujarNutria(){
     // printf("P1 %.2f | P2 %.2f\n",nutria.colisionAtaque.collider.P1.y,nutria.colisionAtaque.collider.P2.y);
 }
 
+void DibujarJugador(){
+    DrawSprite(jugadores[jugadorActual].ranaJugador.sprite, true);
+    DrawCollider(jugadores[jugadorActual].ranaJugador.finSalto);
+}
+
 void DibujarRanaBonus(){
     DrawSprite(ranaBonus.rana.sprite);
     DrawCollider(ranaBonus.rana.finSalto);
 }
 
-void DibujarJugador(){
-    DrawSprite(jugadores[jugadorActual].ranaJugador.sprite, true);
-    DrawCollider(jugadores[jugadorActual].ranaJugador.finSalto);
+void DibujarGameOver(){
+    if(isAnimGameOver){
+        //Dibuja el fondo que ocupa el espacio de los 2 textos. Se dibuja primero para no taparlo
+        DrawText(" ",9,MID,CENT,FONT_SIZE,0,{0,0,0},{0,0,0});
+        DrawText("GAME OVER",9,MID,CENT,FONT_SIZE,0,{200,0,0});
+
+        DrawRect(barridoGameOver_Azul,{0,0,70,255});
+        DrawRect(barridoGameOver_Negro,{0,0,0,255});
+    }
 }
 
 void DibujarJuego(){
@@ -4129,6 +4175,8 @@ void DibujarJuego(){
     //Jugador
     DibujarJugador();
     DibujarRanaBonus();
+
+    DibujarGameOver();
 }
 
 // Se encarga de dibujar la cabecera de la UI por completo
@@ -4452,10 +4500,6 @@ int esat::main(int argc, char **argv) {
     esat::DrawSetTextFont("./Recursos/Fuentes/arcade-legacy.ttf");
     esat::DrawSetTextSize(FONT_SIZE);
 
-    //Inicialicización sistema audio.
-    canalAudio.init();
-    sfx[SFX_ADDCREDIT].load("./Recursos/Audio/SFX/addCredit.mp3");
-
     // Inicialización de todos aquellos recursos que necesitan ser precargados para
     // que otros los puedan usar
     InicializarSpriteSheets();
@@ -4484,7 +4528,5 @@ int esat::main(int argc, char **argv) {
 
     LiberarSprites();
     esat::WindowDestroy();
-    //Finalización sitema audio.
-    canalAudio.deinit();
     return 0;  
 }
