@@ -1,5 +1,9 @@
-﻿#include <esat/window.h>
+﻿#include <esat_extra/soloud/soloud.h>
+#include <esat_extra/soloud/soloud_wav.h>
+
 #include <esat/draw.h>
+
+#include <esat/window.h>
 #include <esat/input.h>
 #include <esat/time.h>
 #include <esat/sprite.h>
@@ -72,6 +76,16 @@ enum EstadoRanaBonus{
 enum Gamemode{
     NORMAL_SINGLE,
     NORMAL_MULTI,
+};
+
+enum Musica{
+    M_INTRO,
+    M_TOTAL
+};
+
+enum SFX{
+    SFX_ADDCREDIT,
+    SFX_TOTAL
 };
 
 /* STRUCTS */
@@ -240,6 +254,13 @@ double current_time,last_time;
 
 //-- Prototipado
 bool areCollidersVisible = false;
+
+//-- Sonido
+//Canal de audio
+SoLoud::Soloud canalAudio;
+//Variables canal audio.
+// SoLoud::Wav musica[M_TOTAL];
+SoLoud::Wav sfx[SFX_TOTAL];
 
 //-- SpriteSheets y arrays de coordenadas del mismo
 // Estos arrays no se incluyen en el propio spriteSheet para poder inicializar su tamaño
@@ -2075,6 +2096,7 @@ void DetectarControles(){
         case INSERT:
         case RANKING:
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_F1)){
+                canalAudio.play(sfx[SFX_ADDCREDIT]);
                 SumarCreditos(1);
                 ComprobarCreditos();
             }
@@ -4430,6 +4452,10 @@ int esat::main(int argc, char **argv) {
     esat::DrawSetTextFont("./Recursos/Fuentes/arcade-legacy.ttf");
     esat::DrawSetTextSize(FONT_SIZE);
 
+    //Inicialicización sistema audio.
+    canalAudio.init();
+    sfx[SFX_ADDCREDIT].load("./Recursos/Audio/SFX/addCredit.mp3");
+
     // Inicialización de todos aquellos recursos que necesitan ser precargados para
     // que otros los puedan usar
     InicializarSpriteSheets();
@@ -4458,5 +4484,7 @@ int esat::main(int argc, char **argv) {
 
     LiberarSprites();
     esat::WindowDestroy();
+    //Finalización sitema audio.
+    canalAudio.deinit();
     return 0;  
 }
