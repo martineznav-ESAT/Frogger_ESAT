@@ -1722,8 +1722,9 @@ void InicializarCronometro(){
 }
 
 // Instancia los valores por defecto del jugador
-// Pensado para utilizarse después de cada muerte para ubicar al jugador en su posicion inicial
+// Pensado para utilizarse después de cada muerte para ubicar al jugador en su posicion inicial o despúes de inicializar un nivel
 void SpawnJugador(){
+    
     jugadores[jugadorActual].ranaJugador.sprite.isActive = true;
     jugadores[jugadorActual].ranaJugador.direccion = ARRIBA;
     jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion = 0;
@@ -1741,8 +1742,10 @@ void SpawnJugador(){
     jugadores[jugadorActual].ranaJugador.distanciaSalto = SPRITE_SIZE;
     jugadores[jugadorActual].ranaJugador.animSalto.duracion = 100;
     jugadores[jugadorActual].ranaJugador.animSalto.velocidad = (jugadores[jugadorActual].ranaJugador.distanciaSalto/(jugadores[jugadorActual].ranaJugador.animSalto.duracion/(1000.0f/FPS)));
-    jugadores[jugadorActual].ranaJugador.animSalto.temporizador = 0;
+    jugadores[jugadorActual].ranaJugador.animSalto.temporizador = last_time;
     jugadores[jugadorActual].filaPuntuacion = 2;
+
+    jugadores[jugadorActual].animMuerte.temporizador = last_time;
 
     InicializarCronometro();
     ActualizarSprite(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
@@ -1750,20 +1753,31 @@ void SpawnJugador(){
 
 // Instancia los valores por defecto del jugador
 // Pensado para utilizarse al inicio de cada partida
-void InicializarJugador(){
-    //Propiedades del jugador al inicio de la partida
-    jugadores[jugadorActual].ranaJugador.sprite.isActive = true;
-    jugadores[jugadorActual].puntuacion = 0;
-    jugadores[jugadorActual].vidas = 3;
-    jugadores[jugadorActual].dificultadActual = 1;
-    jugadores[jugadorActual].nivelActual = 1;
+void InicializarJugadores(){
+    int jugadoresPartida;
+    switch (gamemode){
+        case NORMAL_SINGLE:
+            jugadoresPartida = 1;
+        break;
 
-    jugadores[jugadorActual].animMuerte.duracion = 2000;
-    jugadores[jugadorActual].animMuerte.temporizador = 0;
-    jugadores[jugadorActual].animMuerte.velocidad = jugadores[jugadorActual].animMuerte.duracion/animMuerteSpriteSheet.indicesAnim;
+        case NORMAL_MULTI:
+            jugadoresPartida = 2;
+        break;
+    }
+    
+    for(int i = 0; i < jugadoresPartida; i++){
+        //Propiedades del jugador al inicio de la partida
+        jugadores[i].ranaJugador.sprite.isActive = true;
+        jugadores[i].puntuacion = 0;
+        jugadores[i].vidas = 3;
+        jugadores[i].dificultadActual = 1;
+        jugadores[i].nivelActual = 1;
 
-    //Spawn Rana en posición inicial del jugador
-    SpawnJugador();
+        jugadores[i].animMuerte.duracion = 2000;
+        jugadores[i].animMuerte.velocidad = jugadores[i].animMuerte.duracion/animMuerteSpriteSheet.indicesAnim;
+    }
+
+    jugadorActual = 0;
 }
 
 void InicializarNivel(){
@@ -1905,6 +1919,7 @@ void ComprobarCreditos(){
         case RANKING:
         case INSERT:
             if(credits >= 1){
+                gamemode = NORMAL_SINGLE;
                 pantallaActual = START;
             }
         break;
@@ -1914,6 +1929,7 @@ void ComprobarCreditos(){
                 animRanking.temporizador=last_time;
                 pantallaActual = RANKING;
             }else{
+                gamemode = NORMAL_SINGLE;
                 pantallaActual = START;
             }
         break;
@@ -1944,16 +1960,25 @@ void RestarVidasJugador(int vidas){
         break;
 
         case NORMAL_MULTI:
-            if(jugadores[0].vidas <= 0 && jugadores[1].vidas){
+            if(jugadores[0].vidas <= 0 && jugadores[1].vidas <= 0){
                 for(int i = 0; i < maxJugadores; i++){
                     jugadorActual = i;
                     GuardarPuntuacion();
                 }
+                if(jugadores[0].puntuacion >= jugadores[1].puntuacion){
+                    jugadorActual = 0;
+                }else{
+                    jugadorActual = 1;
+                }
                 ComprobarCreditos();
             }else{
                 jugadorActual = ++jugadorActual % maxJugadores;
-                printf("JUGADOR ACTUAL %d\n",jugadorActual);
-                InicializarNivel();
+                if(jugadores[jugadorActual].vidas <= 0){
+                    jugadorActual = ++jugadorActual % maxJugadores;
+                    SpawnJugador();
+                }else{
+                    InicializarNivel();
+                }
             }
         break;
     }
@@ -2044,6 +2069,9 @@ void DetectarControles(){
         case START:
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_F1)){
                 SumarCreditos(1);
+                if(credits >= 2){
+                    gamemode = NORMAL_MULTI;
+                }
             }
 
             if((esat::IsSpecialKeyDown(esat::kSpecialKey_Right) || esat::IsSpecialKeyDown(esat::kSpecialKey_Left)) && credits >= 2){
@@ -2053,7 +2081,7 @@ void DetectarControles(){
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Enter)){
                 RestarCreditos(gamemode == NORMAL_SINGLE ? 1:2);
                 pantallaActual = JUEGO;
-                InicializarJugador();
+                InicializarJugadores();
                 InicializarNivel();
             }
         break;
@@ -2130,7 +2158,7 @@ void DetectarControles(){
     if(esat::IsKeyDown('6')){
         printf("JUEGO\n");
         pantallaActual = JUEGO;
-        InicializarJugador();
+        InicializarJugadores();
         InicializarNivel();
     }
     
@@ -2426,7 +2454,7 @@ void DetectarColisionRanaBonusRanaFin(){
             &ranaBonus.rana.sprite.collider, 
             {
                 ranasFinales[indice].collider.P1.x,
-                ranasFinales[indice].collider.P1.y - SPRITE_SIZE/2
+                ranasFinales[indice].collider.P1.y - SPRITE_SIZE
             }
         );
         ActualizarSprite(puntosSpriteSheet, puntosSpriteSheet_Coords, &ranaBonus.rana.sprite);
@@ -2785,6 +2813,8 @@ void ActualizarEstadoMoscaCroc(){
         // Comprobar que cuando se cambie a estado PUNTOS, ya tenga actualizado el sprite.
         // Esto solo sirve para reiniciar el contador de la aparicion de la mosca y la trampa cocodrilo y su nuevo esado
         if(HacerCadaX(&moscaCroc.animPuntos.temporizador, moscaCroc.animPuntos.duracion)){
+            moscaCroc.sprite.isVisible = false;
+            moscaCroc.sprite.isActive = false;
             moscaCroc.animMoscaCroc.temporizador = last_time;
             // En el nivel uno, será una mosca siempre, por lo tanto lo inicializa a esto
             if(jugadores[jugadorActual].dificultadActual <= 1){
