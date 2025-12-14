@@ -60,7 +60,18 @@ enum TipoVehiculo {
 enum EstadoMoscaCroc{
     MOSCA,
     CROC,
-    PUNTOS
+    PUNTOS_MC
+};
+
+enum EstadoRanaBonus{
+    LIBRE,
+    ANCLADA,
+    PUNTOS_RB
+};
+
+enum Gamemode{
+    NORMAL_SINGLE,
+    NORMAL_MULTI,
 };
 
 /* STRUCTS */
@@ -157,9 +168,11 @@ struct Jugador{
 struct RanaBonus{
     Rana rana;
     int puntuacion = 200;
-    bool isRotando, isBug;
-    Animacion animRotar;
-    Animacion accionarSalto;
+    Direccion direccionRotacion;
+    bool isBug;
+    EstadoRanaBonus estadoUpdate;
+    Animacion accionarSalto, animPuntos;
+    int indiceTroncoFin = 0;
 };
 
 struct Vehiculo{
@@ -311,6 +324,7 @@ Cronometro cronometro;
 //-- Jugadores
 const unsigned char maxJugadores = 2;
 unsigned char jugadorActual = 0;
+Gamemode gamemode = NORMAL_SINGLE;
 Jugador jugadores[maxJugadores];
 
 //-- Obstáculos
@@ -455,20 +469,39 @@ bool AreColliderEqual(Collider c1, Collider c2){
     );
 }
 
-bool ComprobarSalidaVentanaSprite(Sprite *sprite, Direccion direccion){
+bool ComprobarSalidaVentanaSprite(Sprite sprite, Direccion direccion){
     bool isOut = false;
     switch(direccion){
         case ARRIBA:
-            isOut = (*sprite).collider.P2.y < 0;
+            isOut = sprite.collider.P2.y < 0;
         break;
         case DERECHA:
-            isOut = (*sprite).collider.P1.x > VENTANA_X;
+            isOut = sprite.collider.P1.x > VENTANA_X;
         break;
         case ABAJO:
-            isOut = (*sprite).collider.P1.y > VENTANA_Y;
+            isOut = sprite.collider.P1.y > VENTANA_Y;
         break;
         case IZQUIERDA:
-            isOut = (*sprite).collider.P2.x < 0;
+            isOut = sprite.collider.P2.x < 0;
+        break;
+    }
+
+    return isOut;
+}
+bool ComprobarSalidaVentanaCollider(Collider *collider, Direccion direccion){
+    bool isOut = false;
+    switch(direccion){
+        case ARRIBA:
+            isOut = (*collider).P2.y < 0;
+        break;
+        case DERECHA:
+            isOut = (*collider).P1.x > VENTANA_X;
+        break;
+        case ABAJO:
+            isOut = (*collider).P1.y > VENTANA_Y;
+        break;
+        case IZQUIERDA:
+            isOut = (*collider).P2.x < 0;
         break;
     }
 
@@ -730,6 +763,36 @@ void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
         break;
     }
     RellocateSprite(&(*sprite), nuevaUbicacion);
+}
+
+// Version de RellocateSprite con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
+// (Colision de ataque de la nutria por ejemplo)
+void RellocateCollider(Collider *collider, PuntoCoord nuevaUbicacion){
+    (*collider).P2 = {nuevaUbicacion.x + ((*collider).P2.x-(*collider).P1.x), nuevaUbicacion.y + ((*collider).P2.y-(*collider).P1.y)};
+    (*collider).P1 = nuevaUbicacion;
+}
+
+// Ubica el collider en el borde opuesto de la dirección que se indica ya que se asume que se ha escapado
+// por ese borde y se desea reubicar en el lugar contrario
+//   - *collider        -> El collider a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
+//   - direccion        -> Indica en que dirección se moverá
+void RellocateColliderOnBorderEscape(Collider *collider, Direccion direccion){
+    PuntoCoord nuevaUbicacion;
+    switch(direccion){
+        case ARRIBA:
+            nuevaUbicacion = {(*collider).P1.x,VENTANA_Y};
+        break;
+        case DERECHA:
+            nuevaUbicacion = {0.0f-((*collider).P2.x-(*collider).P1.x),(*collider).P1.y};
+        break;
+        case ABAJO:
+            nuevaUbicacion = {(*collider).P1.x,0.0f-((*collider).P2.y-(*collider).P1.y)};
+        break;
+        case IZQUIERDA:
+            nuevaUbicacion = {VENTANA_X,(*collider).P1.y};
+        break;
+    }
+    RellocateCollider(&(*collider), nuevaUbicacion);
 }
 
 
@@ -1003,11 +1066,6 @@ void InicializarSerpientes(){
 
         if(serpientes[i].sprite.isVisible){
             SpawnSerpiente(&serpientes[i]);
-            //A partir del segundo, los inicializa a una distancia algo distinta para evitar solaparlos en caso de ir a la misma velocidad
-            if(i!=0){
-                serpientes[i].sprite.collider.P1.x += 10;
-                serpientes[i].sprite.collider.P2.x += 10;
-            }
         }
 
         ActualizarSprite(serpienteSpriteSheet, serpienteSpriteSheet_Coords, &serpientes[i].sprite);
@@ -1116,6 +1174,11 @@ void InicializarNutria(){
 
 // Seleccionar ubicación de aparición y mover allí la rana bonus con los valores correspondientes
 void SpawnRanaBonus(){
+    // Valores accion de salto
+    ranaBonus.accionarSalto.duracion =  1000;
+    ranaBonus.accionarSalto.temporizador =  last_time;
+    ranaBonus.accionarSalto.velocidad =  ranaBonus.accionarSalto.duracion;
+    
     // Ubicacion
     // Siempre que se invoque, aparecerá en la primera posicion del primer tronco de la primera fila.
     ranaBonus.rana.sprite.collider = troncos_1[0].sprite.collider;
@@ -1125,26 +1188,29 @@ void SpawnRanaBonus(){
     ranaBonus.rana.sprite.isActive = true;
     ranaBonus.rana.sprite.isVisible = false;
     ranaBonus.isBug = true;
+    ranaBonus.estadoUpdate = LIBRE;
 
     // Sprite y estados
-    ranaBonus.isRotando = false;
     ranaBonus.rana.isJumping = false;
-    ranaBonus.rana.direccion = DERECHA;
-    ranaBonus.rana.sprite.tipoAnimacion = (int) DERECHA;
+    ranaBonus.direccionRotacion = DERECHA;
+    ranaBonus.rana.direccion = ranaBonus.direccionRotacion;
+    ranaBonus.rana.sprite.tipoAnimacion = (int) ranaBonus.direccionRotacion;
     ranaBonus.rana.sprite.indiceAnimacion = (int) ranaBonus.rana.isJumping;
 }
 
 void InicializarRanaBonus(){
     ranaBonus.puntuacion = 200;
-    // Valores animación de giro
-    ranaBonus.animRotar.duracion =  1000;
-    ranaBonus.animRotar.temporizador =  last_time;
-    ranaBonus.animRotar.velocidad =  ranaBonus.animRotar.duracion/3;
 
-    // Valores accion de salto
-    ranaBonus.accionarSalto.duracion =  1000;
-    ranaBonus.accionarSalto.temporizador =  last_time;
-    ranaBonus.accionarSalto.velocidad =  ranaBonus.accionarSalto.duracion;
+    // Valores animacion puntos extra
+    ranaBonus.animPuntos.duracion =  3000;
+    ranaBonus.animPuntos.temporizador =  last_time;
+    ranaBonus.animPuntos.velocidad =  ranaBonus.accionarSalto.duracion;
+
+    // Valores Salto estáticos
+    ranaBonus.rana.distanciaSalto = SPRITE_SIZE;
+    ranaBonus.rana.animSalto.temporizador = last_time;
+    ranaBonus.rana.animSalto.duracion = 100;
+    ranaBonus.rana.animSalto.velocidad = (ranaBonus.rana.distanciaSalto/(ranaBonus.rana.animSalto.duracion/(1000.0f/FPS)));
 
     SpawnRanaBonus();
 }
@@ -1672,7 +1738,7 @@ void SpawnJugador(){
     };
     jugadores[jugadorActual].ranaJugador.isJumping = false;
     jugadores[jugadorActual].ranaJugador.finSalto = jugadores[jugadorActual].ranaJugador.sprite.collider; 
-    jugadores[jugadorActual].ranaJugador.distanciaSalto = ranaBaseSpriteSheet.spriteHeight;
+    jugadores[jugadorActual].ranaJugador.distanciaSalto = SPRITE_SIZE;
     jugadores[jugadorActual].ranaJugador.animSalto.duracion = 100;
     jugadores[jugadorActual].ranaJugador.animSalto.velocidad = (jugadores[jugadorActual].ranaJugador.distanciaSalto/(jugadores[jugadorActual].ranaJugador.animSalto.duracion/(1000.0f/FPS)));
     jugadores[jugadorActual].ranaJugador.animSalto.temporizador = 0;
@@ -1730,9 +1796,13 @@ bool IsSaltoRanaPosible(Rana rana, bool isPlayer = true){
         return false;
     }
 }
-void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
+
+// Actualiza la posición de la zona de fina de salto según la direccion indicada.
+// Además, si es el jugador se encarga de comprobar si el salto es posible
+void IniciarSaltoRana(Rana *rana, Direccion newDireccion, bool isPlayer = true){
     (*rana).direccion = newDireccion;
     // CALCULA LA POSICION FINAL DONDE DEBE ATERRIZAR
+    // printf("Salto -> %d\n",(*rana).distanciaSalto);
     switch((*rana).direccion){
         case ARRIBA:
             (*rana).finSalto.P1.y = (*rana).sprite.collider.P1.y-(*rana).distanciaSalto;
@@ -1760,16 +1830,23 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion){
         break;
     }
 
-    // Si detecta que la posición final de salto, excede el borde de la pantalla de juego, 
-    // no saltará
-    if(IsSaltoRanaPosible(*rana)){
+    if(isPlayer){
+        // Si detecta que la posición final de salto, excede el borde de la pantalla de juego, 
+        // no saltará
+        if(IsSaltoRanaPosible(*rana)){
+            (*rana).isJumping = true;
+            (*rana).animSalto.temporizador = last_time;
+            (*rana).sprite.tipoAnimacion = newDireccion;
+            AvanzarSpriteAnimado(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+            ActualizarSprite(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+        }else{
+            (*rana).finSalto = (*rana).sprite.collider;
+        }
+    }else{
         (*rana).isJumping = true;
         (*rana).animSalto.temporizador = last_time;
         (*rana).sprite.tipoAnimacion = newDireccion;
         AvanzarSpriteAnimado(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
-        ActualizarSprite(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
-    }else{
-        (*rana).finSalto = (*rana).sprite.collider;
     }
 }
 
@@ -1855,6 +1932,31 @@ void RestarVidasJugador(int vidas){
     if(jugadores[jugadorActual].vidas <= 0){
         jugadores[jugadorActual].vidas = 0;
     }
+
+    switch (gamemode){
+        case NORMAL_SINGLE:
+            if(jugadores[jugadorActual].vidas <= 0){
+                GuardarPuntuacion();
+                ComprobarCreditos();
+            }else{
+                SpawnJugador();
+            }
+        break;
+
+        case NORMAL_MULTI:
+            if(jugadores[0].vidas <= 0 && jugadores[1].vidas){
+                for(int i = 0; i < maxJugadores; i++){
+                    jugadorActual = i;
+                    GuardarPuntuacion();
+                }
+                ComprobarCreditos();
+            }else{
+                jugadorActual = ++jugadorActual % maxJugadores;
+                printf("JUGADOR ACTUAL %d\n",jugadorActual);
+                InicializarNivel();
+            }
+        break;
+    }
 }
 
 //Manejo puntuacion jugador
@@ -1869,6 +1971,20 @@ void SumarPuntosJugador(int puntos){
     if(jugadores[jugadorActual].puntuacion_VE >= 20000){
         jugadores[jugadorActual].puntuacion_VE -= 20000;
         SumarVidasJugador(1);
+    }
+}
+
+//Manejo Creditos
+void SumarCreditos(int creditos){
+    credits += creditos;
+    if(credits >= 99){
+        credits = 99;
+    }
+}
+void RestarCreditos(int creditos){
+    credits -= creditos;
+    if(credits <= 0){
+        credits = 0;
     }
 }
 
@@ -1920,18 +2036,22 @@ void DetectarControles(){
         case INSERT:
         case RANKING:
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_F1)){
-                credits++;
+                SumarCreditos(1);
                 ComprobarCreditos();
             }
         break;
 
         case START:
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_F1)){
-                credits++;
+                SumarCreditos(1);
+            }
+
+            if((esat::IsSpecialKeyDown(esat::kSpecialKey_Right) || esat::IsSpecialKeyDown(esat::kSpecialKey_Left)) && credits >= 2){
+                gamemode = (gamemode == NORMAL_SINGLE ? NORMAL_MULTI : NORMAL_SINGLE);
             }
 
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Enter)){
-                credits--;
+                RestarCreditos(gamemode == NORMAL_SINGLE ? 1:2);
                 pantallaActual = JUEGO;
                 InicializarJugador();
                 InicializarNivel();
@@ -2036,11 +2156,13 @@ bool DetectarColision(Collider C1, Collider C2) {
          (C1.P1.y <= C2.P2.y);
 }
 
-// Dados 2 collider, siendo el primero de un jugador, ajusta el radio de colision del jugador
-// y comprueba si hay colisión entre ellos
+// Ajusta el radio de colision del jugador
+// y comprueba si hay colisión entre el jugador y el
+// collider proporcionado como parámetro
 bool DetectarColisionJugador(Collider object_C) {
     if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
-        return (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-10 > object_C.P1.x) &&
+        return 
+        (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.x-10 > object_C.P1.x) &&
         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.x+10 < object_C.P2.x) &&
         (jugadores[jugadorActual].ranaJugador.sprite.collider.P2.y-10 > object_C.P1.y) &&
         (jugadores[jugadorActual].ranaJugador.sprite.collider.P1.y+10 < object_C.P2.y);
@@ -2075,7 +2197,7 @@ void DetectarColisionJugadorZonaFinal(){
                 moscaCroc.sprite.isActive = false;
                 moscaCroc.sprite.tipoAnimacion = 0;
                 moscaCroc.sprite.indiceAnimacion = 2;
-                moscaCroc.estado = PUNTOS;
+                moscaCroc.estado = PUNTOS_MC;
                 moscaCroc.animPuntos.temporizador = last_time;
 
                 ActualizarSprite(puntosSpriteSheet, puntosSpriteSheet_Coords, &moscaCroc.sprite);
@@ -2098,9 +2220,8 @@ void DetectarColisionJugadorZonaFinal(){
                         //Puntos por llegar al final
                         SumarPuntosJugador(50);
                         // 10 Puntos extra por cada segundo sobrante 
-                        // (Se multiplica primero para no perder información en caso de que 
-                        // el "medio segundo" actual del contador sea impar)
-                        SumarPuntosJugador((cronometro.contador*10)/2);
+                        // Se divide primero entre 2 para sascar los segundos reales ya que el contador funciona con medios segundos y luego se multiplica por 10;
+                        SumarPuntosJugador((cronometro.contador/2)*10);
 
                         cronometro.tiempoRestante = cronometro.contador;
                         cronometro.isTiempoVisible=true;
@@ -2284,6 +2405,39 @@ bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
     return(GetFilaPantallaSprite(sprite) >= fila-0.9 && GetFilaPantallaSprite(sprite) <= fila+0.9);
 }
 
+// Comprueba la colisión de la rana bonus con una rana final visible. Si hay colisión, suma los puntos correspondientes y actualiza los datos de la rana bonus para mostrarlo por pantalla
+void DetectarColisionRanaBonusRanaFin(){
+    int indice = 0;
+    bool isColision = false;
+    do{
+        isColision = (
+            ranasFinales[indice].isVisible && 
+            DetectarColision(ranaBonus.rana.sprite.collider, ranasFinales[indice].collider)
+        );
+    } while (++indice < maxRanasFinales && !isColision);
+    
+    if(isColision){
+        indice--;
+        printf("Rana Bonus Salvada con éxito\n");
+        SumarPuntosJugador(ranaBonus.puntuacion);
+        ranaBonus.rana.sprite.tipoAnimacion = 0;
+        ranaBonus.rana.sprite.indiceAnimacion = 2;
+        RellocateCollider(
+            &ranaBonus.rana.sprite.collider, 
+            {
+                ranasFinales[indice].collider.P1.x,
+                ranasFinales[indice].collider.P1.y - SPRITE_SIZE/2
+            }
+        );
+        ActualizarSprite(puntosSpriteSheet, puntosSpriteSheet_Coords, &ranaBonus.rana.sprite);
+        ranaBonus.animPuntos.temporizador = last_time;
+        ranaBonus.estadoUpdate = PUNTOS_RB;
+    }else{
+        ranaBonus.estadoUpdate = LIBRE;
+        SpawnRanaBonus();
+    }
+}
+
 // En función de donde se ubica la rana del jugador, comprueba las colisiones de la fila de la pantalla donde se encuentra y
 // de las adyacentes debido a sus posibles movimientos futuros.
 // Esto permite no tener que comprobar las colisiones de absolutamente todos los obstaculos
@@ -2353,6 +2507,24 @@ void ComprobarColisionesJugador(){
             }
         }
         // printf("\n");
+
+        //Colision rana bonus
+        if(DetectarColisionJugador(ranaBonus.rana.sprite.collider)){
+            //Solo detecta los cambios correspondientes y los asigna. 
+            //De lo demás se encarga la actualización de estado de la rana bonus
+            ranaBonus.rana.sprite.indiceAnimacion = 0;
+            ranaBonus.estadoUpdate = ANCLADA;
+            ranaBonus.rana.sprite.isVisible = true;
+
+        }else{
+            //Si estaba enganchada al jugador y pierde la colisión, la desengancha.
+            //Si está en contacto con una ranaFin visible, hace el sumado de puntos y actualiza
+            //los valores de la ranaBonus para ello
+            //Reinvocar a la rana bonus
+            if(ranaBonus.estadoUpdate == ANCLADA){
+                DetectarColisionRanaBonusRanaFin();
+            }
+        }
     }
 
 }
@@ -2362,7 +2534,7 @@ void ComprobarColisionesJugador(){
 // Cambia los valores de posicion de un obstaculo en función de los parametros indicados
 // Pensado para el movimiento de obstaculos en movimiento como los vehiculos o los troncos
 void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float velocidad){
-    if (ComprobarSalidaVentanaSprite(&(*sprite), direccion)){
+    if (ComprobarSalidaVentanaSprite((*sprite), direccion)){
         RellocateSpriteOnBorderEscape(&(*sprite), direccion);
     }else{
         MoveCollider(&(*sprite).collider, direccion, velocidad);
@@ -2372,10 +2544,20 @@ void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float ve
 // Version de ActualizarMovimientoObstaculo con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
 // (Colision de ataque de la nutria por ejemplo)
 void ActualizarMovimientoObstaculo(Sprite *sprite, Direccion direccion, float velocidad, SpriteSheet spriteSheet){
-    if (ComprobarSalidaVentanaSprite(&(*sprite), direccion)){
+    if (ComprobarSalidaVentanaSprite((*sprite), direccion)){
         RellocateSpriteOnBorderEscape(&(*sprite), direccion, spriteSheet);
     }else{
         MoveCollider(&(*sprite).collider, direccion, velocidad);
+    }
+}
+
+// Cambia los valores de posicion de un collider en función de los parametros indicados
+// Pensado para el movimiento de collider en movimiento
+void ActualizarMovimientoCollider(Collider *collider, Direccion direccion, float velocidad){
+    if (ComprobarSalidaVentanaCollider(&(*collider), direccion)){
+        RellocateColliderOnBorderEscape(&(*collider), direccion);
+    }else{
+        MoveCollider(&(*collider), direccion, velocidad);
     }
 }
 
@@ -2471,7 +2653,7 @@ void ActualizarEstadoTroncodrilo(Troncodrilo filaTroncos[], int indice){
         break;
     }
 
-    if (ComprobarSalidaVentanaSprite(&filaTroncos[indice].sprite, filaTroncos[indice].direccion)){
+    if (ComprobarSalidaVentanaSprite(filaTroncos[indice].sprite, filaTroncos[indice].direccion)){
         // printf("INDICE DE TRONCO SALIDA -> %d\n", indice);
         if(indice == 3){
             filaTroncos[indice].isTronco = BoolPorProbabilidad(troncoProb);
@@ -2599,7 +2781,7 @@ void ActualizarEstadoVehiculos(){
 void ActualizarEstadoMoscaCroc(){
     int randomPosition;
 
-    if(moscaCroc.estado == PUNTOS){
+    if(moscaCroc.estado == PUNTOS_MC){
         // Comprobar que cuando se cambie a estado PUNTOS, ya tenga actualizado el sprite.
         // Esto solo sirve para reiniciar el contador de la aparicion de la mosca y la trampa cocodrilo y su nuevo esado
         if(HacerCadaX(&moscaCroc.animPuntos.temporizador, moscaCroc.animPuntos.duracion)){
@@ -2772,8 +2954,8 @@ void ActualizarEstadoSerpiente(Serpiente *serpiente){
             MatarJugador();
         }
 
-        //Si sale de la pantalla, siempre que no sea por el lado izquierdo de la fila de troncos
-        if(ComprobarSalidaVentanaSprite(&(*serpiente).sprite, (*serpiente).direccion)){
+        //Si sale por completo de la pantalla
+        if(ComprobarSalidaVentanaSprite((*serpiente).sprite, (*serpiente).direccion)){
             //Respawnea la serpiente
             SpawnSerpiente(&(*serpiente));
         }
@@ -2924,8 +3106,6 @@ void ActualizarEstadoNutria(){
                 SpawnNutria();
             }
         }
-
-        
         
         //Movimiento de la nutria
         ActualizarMovimientoObstaculo(&nutria.sprite, nutria.direccion, nutria.animMovimiento.velocidad);
@@ -2933,11 +3113,161 @@ void ActualizarEstadoNutria(){
     }
 }
 
-void ActualizarEstadoRanaBonus(){
-    if(ranaBonus.isBug){
-        ActualizarSprite(ranaRojaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+void ActualizarSaltoRana(Rana *rana, bool isPlayer = true){
+    // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
+    if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion)){
+        MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).animSalto.velocidad);
     }else{
-        ActualizarSprite(ranaRosaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+        (*rana).isJumping = false;
+        (*rana).sprite.collider = (*rana).finSalto;
+        (*rana).sprite.indiceAnimacion = 0;
+
+        //Si es el jugador el que salta, hace estas acciones extra
+        if(isPlayer){
+            ActualizarSprite(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
+            SumarPuntosAvanceVertical();
+        }
+    }
+}
+
+
+// La rana rota en base al sentido indicado
+// true -> Horario
+// false -> Antihorario
+void RotarRanaBonus(bool sentidoHorario = true){
+    // printf("RotarRanaBonus\n");
+    if(sentidoHorario){
+        if(ranaBonus.rana.direccion == IZQUIERDA){
+            ranaBonus.rana.direccion = ARRIBA;
+        }else{
+            ranaBonus.rana.direccion = (Direccion)(ranaBonus.rana.direccion + 1);
+        }
+    }else{
+        if(ranaBonus.rana.direccion == ARRIBA){
+            ranaBonus.rana.direccion = IZQUIERDA;
+        }else{
+            ranaBonus.rana.direccion = (Direccion)(ranaBonus.rana.direccion - 1);
+        }
+    }
+    ranaBonus.rana.sprite.tipoAnimacion = ranaBonus.rana.direccion;
+}
+
+// Comprueba si la rana bonus NO está ubicada en el borde de un tronco mientras quiere saltar
+// en la direccion de ese mismo borde
+bool ComprobarRanaBonusBordeTronco(int colisionesDetectadas[]){
+    return(
+        (ranaBonus.rana.direccion == DERECHA && troncos_1[colisionesDetectadas[2]].sprite.isVisible) ||
+        (ranaBonus.rana.direccion == IZQUIERDA && troncos_1[colisionesDetectadas[0]].sprite.isVisible)
+    );
+}
+
+// Hace que el último valor sea el primero y los otros 2 avancen una posicion
+// Pensado para la deteccion de colisiones de movimiento de la rana bonus
+void ReordenarColisionesRanaBonus(int colisiones[]){
+    int aux;
+    aux = colisiones[0];
+    colisiones[0] = (colisiones[2] == -1 ? 14 : colisiones[2]);
+    colisiones[2] = colisiones[1];
+    colisiones[1] = aux;
+}
+
+void ActualizarMovimientoRanaBonus(){
+    // Los indices de las colisiones de la rana bonus se almacenen aquí, 
+    // siendo la colision izquierda la primera, la del medio donde debería estar ubicada la rana y la derecha la ultima
+    // con respecto al tronco en el que se ubica
+    int colisionesDetectadas_T[3] = {-1,-1,-1};
+    int colisionesDetectadas_I = 0, indiceActual = 0;
+    
+    // Movimiento a causa del rio
+    ActualizarMovimientoObstaculo(&ranaBonus.rana.sprite, troncos_1[0].direccion, troncos_1[0].velocidadMovimiento);
+    if(ranaBonus.rana.sprite.collider.P2.x <= 0){
+        ranaBonus.isBug = false;
+        ranaBonus.rana.sprite.isVisible = true;
+    }
+    //Se reubica el fin de salto a la ubicacion almacenada sobre la que la rana bonus quiere saltar 
+    RellocateCollider(&ranaBonus.rana.finSalto, troncos_1[ranaBonus.indiceTroncoFin].sprite.collider.P1);
+
+    if(HacerCadaX(&ranaBonus.accionarSalto.temporizador, ranaBonus.accionarSalto.duracion)){
+        //Almacenar colisiones actuales
+        do{
+            // Con su tamaño +10 en x por cada lado para asegurar, entra en colisión con 3 zonas de tronco de la fila
+            if(DetectarColision(
+                {
+                    {ranaBonus.rana.sprite.collider.P1.x-15,ranaBonus.rana.sprite.collider.P1.y},
+                    {ranaBonus.rana.sprite.collider.P2.x+15,ranaBonus.rana.sprite.collider.P2.y}
+                }, 
+                troncos_1[indiceActual].sprite.collider
+            )){
+                colisionesDetectadas_T[colisionesDetectadas_I] = indiceActual;
+                colisionesDetectadas_I++;
+            }
+            indiceActual++;
+        } while (colisionesDetectadas_I < 3 && indiceActual < VENTANA_COLUMNAS);
+
+        // Ya que el valor VENTANA_COLUMNAS-1 es un valor con el que solo podría tener contacto por el lado izquierdo
+        // en caso de que el valor que corresponde al lado derecho sea VENTANA_COLUMNAS-1 o -1, reordena los valores para que
+        // esté al lado izquierdo
+        if(colisionesDetectadas_T[2] == VENTANA_COLUMNAS-1 || colisionesDetectadas_T[2] == -1){
+            ReordenarColisionesRanaBonus(colisionesDetectadas_T);
+        }
+
+        //LOG
+        // printf("Colisiones plataforma RanaBonus\n");
+        // for(int i = 0; i < 3; i++){
+        //     printf("%d ", colisionesDetectadas_T[i]);
+        // }
+        // printf("\n\n");
+
+        // Se comprueba si está en el borde
+        if(ComprobarRanaBonusBordeTronco(colisionesDetectadas_T)){
+            ranaBonus.direccionRotacion = ranaBonus.rana.direccion;
+            //Almacena el indice del tronco sobre el que se quiere terminar el salto para evitar descuadrarse
+            if(ranaBonus.rana.direccion == DERECHA){
+                ranaBonus.indiceTroncoFin = colisionesDetectadas_T[2];
+            }else{
+                ranaBonus.indiceTroncoFin = colisionesDetectadas_T[0];
+            }
+            // printf("indiceTroncoFin %d",ranaBonus.indiceTroncoFin);
+            IniciarSaltoRana(&ranaBonus.rana, ranaBonus.rana.direccion, false);
+        }else{
+            // printf("RotarRanaBonus %d\n", ranaBonus.direccionRotacion);
+            RotarRanaBonus(ranaBonus.direccionRotacion == IZQUIERDA);
+        }
+    }else{
+        if(ranaBonus.rana.isJumping){
+            ActualizarSaltoRana(&ranaBonus.rana);
+        }
+    }
+}
+
+void ActualizarEstadoRanaBonus(){
+    switch (ranaBonus.estadoUpdate){
+        case LIBRE:
+            ActualizarMovimientoRanaBonus();
+            //Preparar sprite para dibujar después de los cambios de estado
+            if(ranaBonus.isBug){
+                ActualizarSprite(ranaRojaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+            }else{
+                ActualizarSprite(ranaRosaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+            }
+        break;
+        case ANCLADA:
+            ranaBonus.rana.sprite.collider = jugadores[jugadorActual].ranaJugador.sprite.collider;
+            ranaBonus.rana.sprite.tipoAnimacion = jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion;
+
+            //Preparar sprite para dibujar después de los cambios de estado
+            if(ranaBonus.isBug){
+                ActualizarSprite(ranaRojaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+            }else{
+                ActualizarSprite(ranaRosaSpriteSheet, ranasSpriteSheet_Coords, &ranaBonus.rana.sprite);
+            }
+        break;
+        case PUNTOS_RB:
+            if(HacerCadaX(&ranaBonus.animPuntos.temporizador, ranaBonus.animPuntos.duracion)){
+                ranaBonus.estadoUpdate = LIBRE;
+                SpawnRanaBonus();
+            }
+        break;
     }
 }
 
@@ -2946,31 +3276,11 @@ void ActualizarMuerteJugador(){
     if(HacerCadaX(&jugadores[jugadorActual].animMuerte.temporizador, jugadores[jugadorActual].animMuerte.velocidad)){
         //Fin animacion muerte
         if(jugadores[jugadorActual].ranaJugador.sprite.indiceAnimacion >= animMuerteSpriteSheet.totalCoordsAnim-2){
-            jugadores[jugadorActual].vidas--;
-            if(jugadores[jugadorActual].vidas <= 0){
-                GuardarPuntuacion();
-                ComprobarCreditos();
-            }else{
-                SpawnJugador();
-            }
+            RestarVidasJugador(1);
         }else{
             AvanzarSpriteAnimado(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
             ActualizarSprite(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
         }
-    }
-}
-
-void ActualizarSaltoRana(Rana *rana){
-    // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
-    if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion) && !AreColliderEqual((*rana).sprite.collider, (*rana).finSalto)){
-        MoveCollider(&(*rana).sprite.collider, (*rana).direccion, (*rana).animSalto.velocidad);
-    }else{
-        (*rana).isJumping = false;
-        (*rana).sprite.collider = (*rana).finSalto;
-        (*rana).sprite.indiceAnimacion = 0;
-        ActualizarSprite(ranaBaseSpriteSheet, ranasSpriteSheet_Coords, &(*rana).sprite);
-
-        SumarPuntosAvanceVertical();
     }
 }
 
@@ -3172,6 +3482,7 @@ void ActualizarEstadoJuego(){
     ActualizarEstadoMoscaCroc();
     ActualizarEstadoSerpientes();
     ActualizarEstadoNutria();
+    ActualizarEstadoRanaBonus();
 
     ActualizarEstadoJugador();
 }
@@ -3540,7 +3851,15 @@ void DibujarInsert(){
 void DibujarStart(){
     DrawText("PUSH",4,MID,CENT,FONT_SIZE*-7,0);
     DrawText("START BUTTON",12,MID,CENT,FONT_SIZE*-2,0,{220,70,220});
-    DrawText("ONE PLAYER ONLY",15,MID,CENT,FONT_SIZE*2,0);
+    switch (gamemode){
+        case NORMAL_SINGLE:
+            DrawText("ONE PLAYER ONLY",15,MID,CENT,FONT_SIZE*2,0);
+        break;
+
+        case NORMAL_MULTI:
+            DrawText("TWO PLAYERS - ALTERNATED",24,MID,CENT,FONT_SIZE*2,0);
+        break;
+    }
     DrawText("ONE EXTRA FROG 20000 PTS",24,MID,CENT,FONT_SIZE*5,0,{200,0,0});
 }
 
@@ -3715,9 +4034,9 @@ void DibujarJuego(){
     DibujarMoscaCroc();
     DibujarSerpientes();
     DibujarNutria();
-    DibujarRanaBonus();
     //Jugador
     DibujarJugador();
+    DibujarRanaBonus();
 }
 
 // Se encarga de dibujar la cabecera de la UI por completo
@@ -3987,12 +4306,45 @@ void LiberarSpritesJugadores(){
     }
 }
 
+void LiberarSpritesMoscaCroc(){
+    if(moscaCroc.sprite.imagen != NULL){
+        esat::SpriteRelease(moscaCroc.sprite.imagen);
+    }
+}
+
+void LiberarSpritesSerpientes(){
+    for(int i = 0; i < maxSerpientes; i++){
+        if(serpientes[i].sprite.imagen != NULL){
+            esat::SpriteRelease(jugadores[i].ranaJugador.sprite.imagen);
+        }
+    }
+}
+
+void LiberarSpritesNutria(){
+    if(nutria.sprite.imagen != NULL){
+        esat::SpriteRelease(nutria.sprite.imagen);
+    }
+    if(nutria.colisionAtaque.imagen != NULL){
+        esat::SpriteRelease(nutria.colisionAtaque.imagen);
+    }
+}
+
+void LiberarSpritesRanaBonus(){
+    if(moscaCroc.sprite.imagen != NULL){
+        esat::SpriteRelease(moscaCroc.sprite.imagen);
+    }
+}
+
 //Libera de memoria todos los spriteHandle inicializados
 void LiberarSprites(){
     LiberarSpritesZonaFinal();
     LiberarSpritesRio();
     LiberarSpritesVehiculos();
+    LiberarSpritesMoscaCroc();
+    LiberarSpritesSerpientes();
+    LiberarSpritesNutria();
     LiberarSpritesJugadores();
+    LiberarSpritesRanaBonus();
     LiberarSpritesBase();
     LiberarSpriteSheets();
 }
