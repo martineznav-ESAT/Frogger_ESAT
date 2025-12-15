@@ -12,10 +12,14 @@ Versión del videojuego arcade clásico de Konami FROGGER desarrollada por Jonat
 CONTROLES:
   - En menú (Intro, puntuacion, ranking, peticion de moneda)
       F1 = +1 Crédito
+    
   - En pantalla Start (Siempre que hayan créditos)
       F1 = +1 Crédito
+    
       Flechas de direccion <- & -> = Cambiar modo de juego (Se necesitan al menos 2 créditos)
+    
       Enter = Confirmar modo de juego e iniciar partida
+    
   - En partida
       Flechas de dirección = Movimiento de la rana (Arriba = Arriba, Derecha = Derecha...)
 
