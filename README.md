@@ -27,9 +27,12 @@ CONTROLES:
       Flechas de dirección = Movimiento de la rana (Arriba = Arriba, Derecha = Derecha...)
 
 Para descargarlo y jugarlo directamente, se puede utilizar una de las versiones de "Release" ubicadas al lado derecho del proyecto en la página de [github]([url](https://github.com/martineznav-ESAT/Frogger_ESAT)). 
+
 Estas versiones consisten de un ".exe" ya compilado junto a la carpeta de "Recursos" con los assets necesarios para su ejecución.
 
-Si deseas descargar el código fuente y compilarlo por tu cuenta, una vez compilado la ejecución será la misma, pero necesitaras del ""Developer Command Prompt for VS 2022"" con acceso a compilacion de C++ mediante cl para compilar.
+
+Si deseas descargar el código fuente y compilarlo por tu cuenta, una vez compilado la ejecución será la misma, pero necesitaras del ""Developer Command Prompt for VS 2022"" con acceso a compilacion de C++ mediante el comando "cl" para compilar.
+
 Sin embargo, si se descarga todo el contenido de la rama correctamente, compilar es tan simple como ejecutar el comando "compilacion.bat Frogger.cc" desde la ubicación del código fuente tal y como se muestra en la siguiente imagen:
 
 <img width="1571" height="371" alt="image" src="https://github.com/user-attachments/assets/531d62c6-8f39-4bc0-9b6b-1f6c15a7a3e5" />
