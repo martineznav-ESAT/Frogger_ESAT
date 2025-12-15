@@ -1,8 +1,13 @@
 Versión del videojuego arcade clásico de Konami FROGGER desarrollada por Jonathan Martínez Navarro a modo de proyecto de práctica para Escuela Superior de Arte y Tecnología (ESAT) bajo la tutela de Federico Sanjuan.
+
 -- Trata de ser lo mas fiel posible al original.
+
 -- Dispone de modo multijugador entre 2 personas.
+
 -- Funcionamiento óptimo a 60fps.
+
 -- Consumo medio de memoria RAM -> 45MB
+
 
 CONTROLES:
   - En menú (Intro, puntuacion, ranking, peticion de moneda)
