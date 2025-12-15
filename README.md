@@ -26,7 +26,7 @@ CONTROLES:
 
       Flechas de dirección = Movimiento de la rana (Arriba = Arriba, Derecha = Derecha...)
 
-Para descargarlo y jugarlo directamente, se puede utilizar una de las versiones de "Release" ubicadas al lado derecho del proyecto en la página de [github]([url](https://github.com/martineznav-ESAT/Frogger_ESAT)). 
+Para descargarlo y jugarlo directamente, se puede utilizar una de las versiones de "Release" ubicadas al lado derecho del proyecto en la página de <a href="https://github.com/martineznav-ESAT/Frogger_ESAT" target="_blank">github</a>. 
 
 Estas versiones consisten de un ".exe" ya compilado junto a la carpeta de "Recursos" con los assets necesarios para su ejecución.
 
