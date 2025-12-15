@@ -10,6 +10,11 @@ Versión del videojuego arcade clásico de Konami FROGGER desarrollada por Jonat
 
 
 CONTROLES:
+
+  - En cualquier momento
+
+      ESC = Cerrar juego
+
   - En menú (Intro, puntuacion, ranking, peticion de moneda)
 
       F1 = +1 Crédito
