@@ -1,9 +1,8 @@
-﻿#include <esat/draw.h>
-
-#include <esat/window.h>
+﻿#include <esat/window.h>
 #include <esat/input.h>
 #include <esat/time.h>
 #include <esat/sprite.h>
+#include <esat/draw.h>
 
 #include <stdlib.h>
 #include <time.h>
