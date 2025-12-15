@@ -23,5 +23,6 @@ Sin embargo, si se descarga todo el contenido de la rama correctamente, compilar
 <img width="1571" height="371" alt="image" src="https://github.com/user-attachments/assets/531d62c6-8f39-4bc0-9b6b-1f6c15a7a3e5" />
 
 Compilación correcta:
+
 <img width="439" height="187" alt="image" src="https://github.com/user-attachments/assets/d3064679-700b-4bdc-990c-d15761d69d3c" />
 
