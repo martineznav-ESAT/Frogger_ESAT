@@ -60,13 +60,13 @@ enum TipoVehiculo {
 enum EstadoMoscaCroc{
     MOSCA,
     CROC,
-    PUNTOS_MC
+    PUNTOS_MC //Puntos MoscaCroc
 };
 
 enum EstadoRanaBonus{
     LIBRE,
     ANCLADA,
-    PUNTOS_RB
+    PUNTOS_RB //Puntos RanaBonus
 };
 
 enum Gamemode{
@@ -229,9 +229,9 @@ struct Nutria{
 /* FIN STRUCTS */
 
 /* GLOBALES */
-//-- Tamaños ventanas
+//-- Tamaños ventana
 const int VENTANA_X = 672, VENTANA_Y = 768;
-const int SPRITE_SIZE = 48;
+const unsigned char SPRITE_SIZE = 48;
 const int VENTANA_COLUMNAS = VENTANA_X/SPRITE_SIZE +1, VENTANA_FILAS = VENTANA_Y/SPRITE_SIZE;
 
 //-- FPS
@@ -354,6 +354,8 @@ Sprite zonasFinales[maxZonasFinales];
 const int maxRanasFinales = 5;
 Sprite ranasFinales[maxRanasFinales];
 
+const int tamanyoFilaArbustos = 14;
+
 // Animales
 // Solo permite un moscaCroc activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
 MoscaCroc moscaCroc;
@@ -365,10 +367,6 @@ Nutria nutria;
 
 RanaBonus ranaBonus;
 
-//-- Estructuras
-const int tamanyoFilaArbustos = 14;
-
-// Fin Variables
 /* FIN GLOBALES */
 
 /* FUNCIONALIDADES */
@@ -854,8 +852,6 @@ void MoveCollider(Collider *collider, Direccion direccion, float velocidad){
 }
 
 //*** MANEJO DE INICIALIZACIÓN DE OBJETOS ***/
-//TO_DO GESTION DE INFORMACIÓN EN BASE AL NIVEL
-
 // Inicializa los sprites del rótulo del juego que aparecen en las pantallas de INTRO, PUNTUACION y RANKING asegurandose de que aparecen en la ubicacion correcta
 // El parametro booleano indica si debe inicializarse en base a: 
 //  -INTRO. Ubicando los sprites como ranas fuera de la pantalla
@@ -1811,16 +1807,11 @@ void InicializarNivel(){
 
 // Dada una rana con posicion de finSalto, comprueba si puede realizar ese salto
 // El comportamiento cambiará en función de si se indica que es una rana de jugador o bonus
-bool IsSaltoRanaPosible(Rana rana, bool isPlayer = true){
-    if(isPlayer){
-        return (
-            rana.finSalto.P1.x >=0 && rana.finSalto.P2.x <= VENTANA_X &&
-            rana.finSalto.P1.y >= ranaBaseSpriteSheet.spriteHeight*2 && rana.finSalto.P2.y <= VENTANA_Y-ranaBaseSpriteSheet.spriteHeight
-        );
-    }else{
-        // TO_DO IA RANA
-        return false;
-    }
+bool IsSaltoRanaJugadorPosible(Rana rana){
+    return (
+        rana.finSalto.P1.x >=0 && rana.finSalto.P2.x <= VENTANA_X &&
+        rana.finSalto.P1.y >= ranaBaseSpriteSheet.spriteHeight*2 && rana.finSalto.P2.y <= VENTANA_Y-ranaBaseSpriteSheet.spriteHeight
+    );
 }
 
 // Actualiza la posición de la zona de fina de salto según la direccion indicada.
@@ -1859,7 +1850,7 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion, bool isPlayer = true){
     if(isPlayer){
         // Si detecta que la posición final de salto, excede el borde de la pantalla de juego, 
         // no saltará
-        if(IsSaltoRanaPosible(*rana)){
+        if(IsSaltoRanaJugadorPosible(*rana)){
             (*rana).isJumping = true;
             (*rana).animSalto.temporizador = last_time;
             (*rana).sprite.tipoAnimacion = newDireccion;
@@ -2156,7 +2147,7 @@ void DetectarControles(){
 
             //Avanzar nivel
             if(esat::IsSpecialKeyDown(esat::kSpecialKey_Keypad_8)){
-                InicializarAvanceNivel();
+                AvanzarNivel();
             }
 
             //Game Over
@@ -2169,34 +2160,34 @@ void DetectarControles(){
 
     //PROTOTIPADO
     if(esat::IsKeyDown('1')){
-        printf("INTRO\n");
+        // printf("INTRO\n");
         InicializarTitulo(true);
         animIntro.temporizador=last_time;
         pantallaActual = INTRO;
     }
     if(esat::IsKeyDown('2')){
-        printf("PUNTUACIONES\n");
+        // printf("PUNTUACIONES\n");
         InicializarTitulo();
         animPuntuaciones.temporizador=last_time;
         pantallaActual = PUNTUACIONES;
     }
     if(esat::IsKeyDown('3')){
-        printf("RANKING\n");
+        // printf("RANKING\n");
         InicializarTitulo();
         animRanking.temporizador=last_time;
         pantallaActual = RANKING;
     }
     if(esat::IsKeyDown('4')){
-        printf("INSERT\n");
+        // printf("INSERT\n");
         animInsert.temporizador=last_time;
         pantallaActual = INSERT;
     }
     if(esat::IsKeyDown('5')){
-        printf("START\n");
+        // printf("START\n");
         pantallaActual = START;
     }
     if(esat::IsKeyDown('6')){
-        printf("JUEGO\n");
+        // printf("JUEGO\n");
         pantallaActual = JUEGO;
         InicializarJugadores();
         InicializarNivel();
@@ -2206,9 +2197,9 @@ void DetectarControles(){
     if(esat::IsSpecialKeyDown(esat::kSpecialKey_Alt)){
         areCollidersVisible = !areCollidersVisible;
         if(areCollidersVisible){
-            printf("SHOWING COLLIDERS\n");
+            // printf("SHOWING COLLIDERS\n");
         }else{
-            printf("HIDDEN COLLIDERS\n");
+            // printf("HIDDEN COLLIDERS\n");
         }
     }
 }
@@ -2303,9 +2294,8 @@ void DetectarColisionJugadorZonaFinal(){
             }
 
             if(victoria == maxRanasFinales){
-                printf("VICTORIA | AVANZANDO NIVEL");
+                // printf("VICTORIA | AVANZANDO NIVEL");
                 
-                //TO_DO Sustituir por IniciarAnimacionAvanceNivel
                 InicializarAvanceNivel();
             }
         }
@@ -2486,7 +2476,7 @@ void DetectarColisionRanaBonusRanaFin(){
     
     if(isColision){
         indice--;
-        printf("Rana Bonus Salvada con éxito\n");
+        // printf("Rana Bonus Salvada con éxito\n");
         SumarPuntosJugador(ranaBonus.puntuacion);
         ranaBonus.rana.sprite.tipoAnimacion = 0;
         ranaBonus.rana.sprite.indiceAnimacion = 2;
@@ -2776,6 +2766,7 @@ void ActualizarEstadoFilaTroncodrilos(Troncodrilo array[], bool posibilidadCocod
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         if(posibilidadCocodrilos && i < 4){
             // TO_DO, DEBERÍA TENER UN STRUCT DE TIPO FilaTroncodrilo o similar con la información necesaria
+
             // 4 es el tamaño de grupo en la fila en la que pueden aparecer cocodrilos. 
             // Por lo tanto, dado que técnicamente solo el primero del array puede convertirse en cocodrilo
             // si el indice es mayor al número del grupo (Sprites del primero troncodrilo 0-3), 
@@ -2903,7 +2894,7 @@ void ActualizarEstadoMoscaCroc(){
         }else{
             // Si es un cocodrilo trampa visible, han pasado "animMoscaCroc.velocidad" ms y está con el hocico fuera...
             if(
-                moscaCroc.estado && 
+                moscaCroc.estado == CROC && 
                 moscaCroc.sprite.isVisible && 
                 GetContadorFromTemp(moscaCroc.animMoscaCroc.temporizador) >= moscaCroc.animMoscaCroc.velocidad && 
                 moscaCroc.sprite.tipoAnimacion == 1 &&
