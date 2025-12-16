@@ -1919,22 +1919,25 @@ void ComprobarCreditos(){
     switch (pantallaActual){
         case INTRO:
         case PUNTUACIONES:
-        case RANKING:
         case INSERT:
             if(credits >= 1){
                 gamemode = NORMAL_SINGLE;
                 pantallaActual = START;
             }
         break;
-        case JUEGO:
-            if(credits <= 0){
-                InicializarTitulo();
-                animRanking.temporizador=last_time;
-                pantallaActual = RANKING;
-            }else{
+        case RANKING:
+            if(credits >= 1){
                 gamemode = NORMAL_SINGLE;
                 pantallaActual = START;
+            }else{
+                animInsert.temporizador = last_time;
+                pantallaActual = INSERT;
             }
+        break;
+        case JUEGO:
+            InicializarTitulo();
+            animRanking.temporizador=last_time;
+            pantallaActual = RANKING;
         break;
     }
 }
@@ -3947,8 +3950,7 @@ void DibujarRanking(){
 
         DibujarCopyrightKonami();
     }else{
-        animInsert.temporizador = last_time;
-        pantallaActual = INSERT;
+        ComprobarCreditos();
     }
 }
 
