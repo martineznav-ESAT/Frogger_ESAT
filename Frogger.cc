@@ -1878,13 +1878,14 @@ void MatarJugador(){
     ActualizarSprite(animMuerteSpriteSheet, animMuerteSpriteSheet_Coords, &jugadores[jugadorActual].ranaJugador.sprite);
 }
 
-//Comprueba en que posicion va la nueva puntuacion, la asigna y desplaza las puntuaciones por debajo
+// Comprueba en que posicion va la nueva puntuacion, la asigna y desplaza las puntuaciones por debajo en caso de que
+// la puntuacion sea mayor a alguna de las actuales en el ranking
 void GuardarPuntuacion(){
     int puntosUltimaPartida = jugadores[jugadorActual].puntuacion;
     int i = 0, aux = -1;
     do{
         // aux se utiliza para manejar la puntuacion anterior para poder moverla sin eliminar el valor. 
-        // Si es -1, es el valor por defecto y por lo tanto que la nueva puntiacion no tiene posición asignada 
+        // Si es -1, es el valor por defecto y por lo tanto que la nueva puntuacion no tiene posición asignada 
         // todavia. Si recorre todo el array de puntuaciones y sigue siendo -1 significa que no es mayor a 
         // otro de los valores del listado y por lo tanto que no se debe almacenar.
         if(aux == -1){
@@ -1892,6 +1893,12 @@ void GuardarPuntuacion(){
                 aux = rankingScores[i];
                 rankingScores[i] = jugadores[jugadorActual].puntuacion;
                 jugadores[jugadorActual].puntuacion = aux;
+            }else{
+                // Si el valor a almacenar es exactamente igual que uno que ya existe, avanza el índice para terminar 
+                // la búsqueda ya que no debe actualizar el ranking
+                if(jugadores[jugadorActual].puntuacion == rankingScores[i]){
+                    i = maxRankingScores;
+                }
             }
         }else{
             // El doble if anterior se usa de esa manera para asegurar que este apartado
@@ -1910,6 +1917,8 @@ void GuardarPuntuacion(){
     //Termina cuando recorra todo o cuando el valor a mover y el actual sean iguales
     }while(i < maxRankingScores && jugadores[jugadorActual].puntuacion != rankingScores[i]);
 
+    printf("aux %d\n",aux);
+    printf("jugadores[jugadorActual].puntuacion %d\n",jugadores[jugadorActual].puntuacion);
     jugadores[jugadorActual].puntuacion = puntosUltimaPartida;
 }
 
