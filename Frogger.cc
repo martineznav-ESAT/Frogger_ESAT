@@ -1958,7 +1958,7 @@ void InicializarGameOver(){
 
     barridoGameOver_Negro = {
         {VENTANA_X, (VENTANA_Y)/2},
-        {VENTANA_X, VENTANA_Y-SPRITE_SIZE}
+        {VENTANA_X, VENTANA_Y}
     };
 
     isAnimGameOver = true;
