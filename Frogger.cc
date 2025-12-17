@@ -2568,23 +2568,23 @@ void ComprobarColisionesJugador(){
             }
         }
         // printf("\n");
+    }
 
-        //Colision rana bonus
-        if(DetectarColisionJugador(ranaBonus.rana.sprite.collider)){
-            //Solo detecta los cambios correspondientes y los asigna. 
-            //De lo demás se encarga la actualización de estado de la rana bonus
-            ranaBonus.rana.sprite.indiceAnimacion = 0;
-            ranaBonus.estadoUpdate = ANCLADA;
-            ranaBonus.rana.sprite.isVisible = true;
+    //Colision rana bonus
+    if(DetectarColisionJugador(ranaBonus.rana.sprite.collider)){
+        //Solo detecta los cambios correspondientes y los asigna. 
+        //De lo demás se encarga la actualización de estado de la rana bonus
+        ranaBonus.rana.sprite.indiceAnimacion = 0;
+        ranaBonus.estadoUpdate = ANCLADA;
+        ranaBonus.rana.sprite.isVisible = true;
 
-        }else{
-            //Si estaba enganchada al jugador y pierde la colisión, la desengancha.
-            //Si está en contacto con una ranaFin visible, hace el sumado de puntos y actualiza
-            //los valores de la ranaBonus para ello
-            //Reinvocar a la rana bonus
-            if(ranaBonus.estadoUpdate == ANCLADA){
-                DetectarColisionRanaBonusRanaFin();
-            }
+    }else{
+        //Si estaba enganchada al jugador y pierde la colisión, la desengancha.
+        //Si está en contacto con una ranaFin visible, hace el sumado de puntos y actualiza
+        //los valores de la ranaBonus para ello
+        //Reinvocar a la rana bonus
+        if(ranaBonus.estadoUpdate == ANCLADA){
+            DetectarColisionRanaBonusRanaFin();
         }
     }
 
