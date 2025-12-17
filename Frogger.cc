@@ -1917,8 +1917,8 @@ void GuardarPuntuacion(){
     //Termina cuando recorra todo o cuando el valor a mover y el actual sean iguales
     }while(i < maxRankingScores && jugadores[jugadorActual].puntuacion != rankingScores[i]);
 
-    printf("aux %d\n",aux);
-    printf("jugadores[jugadorActual].puntuacion %d\n",jugadores[jugadorActual].puntuacion);
+    // printf("aux %d\n",aux);
+    // printf("jugadores[jugadorActual].puntuacion %d\n",jugadores[jugadorActual].puntuacion);
     jugadores[jugadorActual].puntuacion = puntosUltimaPartida;
 }
 
