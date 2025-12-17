@@ -1055,7 +1055,7 @@ void InicializarSerpientes(){
         serpientes[i].sprite.indiceAnimacion = 0;
         serpientes[i].sprite.tipoAnimacion = 0;
 
-        //En dificultades por debajo de 2, no se activan
+        //En dificultades por debajo o igual a 2, no se activan
         if(jugadores[jugadorActual].dificultadActual <= 2){
             serpientes[i].sprite.isActive = false;
             serpientes[i].sprite.isVisible = false;
