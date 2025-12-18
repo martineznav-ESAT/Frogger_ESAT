@@ -419,7 +419,7 @@ Sprite zonasFinales[maxZonasFinales];
 const int maxRanasFinales = 5;
 Sprite ranasFinales[maxRanasFinales];
 
-const int tamanyoFilaArbustos = 14;
+const int tamanyoFilaArbustos = VENTANA_COLUMNAS-1;
 
 // Animales
 // Solo permite un moscaCroc activo a la vez (sea mosca o croc (cocodrilo trampa)), no dos a la vez en distintos hogares.
