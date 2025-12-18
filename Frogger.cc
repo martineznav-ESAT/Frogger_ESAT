@@ -2310,7 +2310,7 @@ void DetectarControles(){
 /*** FUNCIONES DE ACTUALIZACIÓN DE ESTADO DEL JUEGO ***/
 
 /** COLISIONES **/
-// Dados 2 collider, comprueba si hay colisión entre ellos
+// Dados 2 collider, comprueba si hay colisión entre ellos y devuelve el resultado
 bool DetectarColision(Collider C1, Collider C2) {
   return (C1.P2.x >= C2.P1.x) &&
          (C1.P1.x <= C2.P2.x) &&
@@ -2318,9 +2318,7 @@ bool DetectarColision(Collider C1, Collider C2) {
          (C1.P1.y <= C2.P2.y);
 }
 
-// Ajusta el radio de colision del jugador
-// y comprueba si hay colisión entre el jugador y el
-// collider proporcionado como parámetro
+// Ajusta el radio de colision del jugador y comprueba si hay colisión entre el jugador y el collider proporcionado como parámetro. Devuelve el resultado
 bool DetectarColisionJugador(Collider object_C) {
     if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
         return 
@@ -2337,7 +2335,7 @@ bool DetectarColisionJugador(Collider object_C) {
 // Si está saltando, comprueba si se choca con la pared.
 // Si consigue aterrizar, se asegura que haga contacto una zona desocupada
 //      Zona Ocupada -> Mismo efecto que chocar con la pared
-//      Zona Desocupada -> Suma de puntuacion y comprobar si se ha superado el nivel, ejecutando unos ventos u otros
+//      Zona Desocupada -> Suma de puntuacion y comprobar si se ha superado el nivel, ejecutando unos eventos u otros
 void DetectarColisionJugadorZonaFinal(){
     // Almacena el total de zonas ocupadas. Si todas están ocupadas, entonces se avanza de nivel
     int victoria = 0;
@@ -2405,7 +2403,7 @@ void DetectarColisionJugadorZonaFinal(){
     }
 }
 
-// Comprueba si puede posarse sobre un troncodrilo
+// Comprueba si puede posarse sobre un troncodrilo de la fila pasada por parámetro
 void DetectarColisionJugadorFilaTroncodrilos(Troncodrilo troncodrilos[]){
     // Al saltar puede quedarse en medio de 2 colisiones. 
     // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la segunda.
@@ -2477,7 +2475,7 @@ void DetectarColisionJugadorFilaTroncodrilos(Troncodrilo troncodrilos[]){
     }
 }
 
-// Comprueba si puede posarse sobre una tortuga
+// Comprueba si puede posarse sobre una tortuga de la fila pasada por parámetro
 void DetectarColisionJugadorFilaTortugas(Tortuga tortugas[]){
     // Al saltar puede quedarse en medio de 2 colisiones. 
     // Los indices de estas se almacenen aquí, siendo la colision izquierda la primera y la derecha la seggunda.
@@ -2551,7 +2549,7 @@ void DetectarColisionJugadorFilaTortugas(Tortuga tortugas[]){
 
 // Todos los vehiculos actuan de la misma forma contra la rana:
 // La rana es atropellada y muere en el acto, activando todos los 
-// eventos que deban ocurrir cuando esta fallece
+// eventos que deban ocurrir cuando esta fallece. Se le debe pasar por parámetro la fila de vehículos a comprobar y el total de vehículos que se encuentran en la misma
 void DetectarColisionJugadorFilaVehiculos(Vehiculo vehiculos[], int totalVehiculos){
     for(int i = 0; i < totalVehiculos; i++){
         if(DetectarColisionJugador(vehiculos[i].sprite.collider) && vehiculos[i].sprite.isActive){
@@ -2605,8 +2603,8 @@ void DetectarColisionRanaBonusRanaFin(){
 }
 
 // En función de donde se ubica la rana del jugador, comprueba las colisiones de la fila de la pantalla donde se encuentra y
-// de las adyacentes debido a sus posibles movimientos futuros.
-// Esto permite no tener que comprobar las colisiones de absolutamente todos los obstaculos
+// de las adyacentes debido a sus posibles movimientos futuros. Esto permite no tener que comprobar las colisiones de absolutamente todos los obstaculos
+// También comprueba la colisión del jugador con la rana bonus
 void ComprobarColisionesJugador(){
     //Recorre las filas con posibles interacciones con el jugador si está activo
     if(jugadores[jugadorActual].ranaJugador.sprite.isActive){
@@ -2727,7 +2725,7 @@ void ActualizarMovimientoCollider(Collider *collider, Direccion direccion, float
     }
 }
 
-//Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
+// Comprueba si la tortuga pasada por parámetro se está sumergiendo o no y actualiza su estado de sumersión (Direccion derecha o inversa de la animacion y deteccion de colision) 
 void ComprobarSumersionTortuga(Tortuga *tortuga){
     int preSumersionCoord = (tortugaSpriteSheet.coordsAnim/2)-2;
     int penUltimaCoord = tortugaSpriteSheet.coordsAnim-(2*2);
@@ -2780,7 +2778,7 @@ void ActualizarEstadoTortuga(Tortuga *tortuga){
 
 }
 
-//Recorre todas las tortugas la fila de un rio y actualiza sus estados
+//Recorre todas las tortugas de la fila de un rio y actualiza sus estados
 // array[] -> Fila de tortugas
 void ActualizarEstadoFilaTortugas(Tortuga array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
@@ -2788,7 +2786,7 @@ void ActualizarEstadoFilaTortugas(Tortuga array[]){
     }
 }
 
-// Actualiza el estado de movimiento y sprite de un troncodrilo
+// Actualiza el estado de movimiento y sprite de un troncodrilo pasado por parámetro
 void ActualizarEstadoTroncodrilo(Troncodrilo *troncodrilo){
     ActualizarMovimientoObstaculo(&(*troncodrilo).sprite,(*troncodrilo).direccion,(*troncodrilo).velocidadMovimiento);
     if((*troncodrilo).isTronco){
@@ -2885,6 +2883,7 @@ void ActualizarEstadoFilaTroncodrilos(Troncodrilo array[], bool posibilidadCocod
     }
 }
 
+// Actualiza todos los estados de las filas de la zona del río
 void ActualizarEstadoRio(){
     for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
         switch ((FilaRio) i){
@@ -2907,11 +2906,13 @@ void ActualizarEstadoRio(){
     }
 }
 
+// Actualiza el estado de un vehículo pasado por parámetro
 void ActualizarEstadoVehiculo(Vehiculo *vehiculo){
     ActualizarMovimientoObstaculo(&(*vehiculo).sprite,(*vehiculo).direccion,(*vehiculo).velocidadMovimiento);
     ActualizarSprite(vehiculosSpriteSheet,vehiculosSpriteSheet_Coords,&(*vehiculo).sprite);
 }
 
+// Actualiza el estado de todos los vehículos
 void ActualizarEstadoVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
@@ -3040,7 +3041,7 @@ void ActualizarEstadoAnimacionSerpiente(Serpiente *serpiente){
     }
 }
 
-// Comprueba si la serpiente está totalmente encima de un tronco en base a las colisiones detectadas en la actualización de estado de la misma
+// Comprueba si la serpiente está totalmente encima de un tronco en base a las colisiones detectadas en la actualización de estado de la misma y devuelve el resultado
 bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
     bool isSobreTronco = false;
     int indice = 0, contador = 0;
@@ -3105,7 +3106,7 @@ bool IsSerpienteSobreTronco(Serpiente *serpiente, int colisionesDetectadas[3]){
     return isSobreTronco;
 }
 
-// Actualiza los estados de una serpiente
+// Actualiza los estados de una serpiente pasada por parámetro
 // -Movimiento
 // -Salida de pantalla
 // -Respawn
@@ -3191,7 +3192,7 @@ bool ComprobarColisionNutria(Sprite sprite){
     return (DetectarColision(nutria.sprite.collider , sprite.collider) && sprite.isVisible);
 }
 
-// Comprueba si debe ejecutar el ataque de la nutria, matando así al jugador
+// Comprueba si debe ejecutar el ataque de la nutria, matando así al jugador si está a rango
 void EjecutarAtaqueNutria(){
     //Si la nutria asoma por lo menos la mitad de su sprite por pantalla y el el jugador esta a rango del ataque de la nutria
     if(DetectarColisionJugador(nutria.colisionAtaque.collider) && nutria.sprite.collider.P2.x >= nutriaSpriteSheet.spriteWidth/2 && nutria.sprite.collider.P1.x <= VENTANA_X-nutriaSpriteSheet.spriteWidth/2){
@@ -3281,6 +3282,7 @@ void ActualizarEstadoNutria(){
     }
 }
 
+// Actualiza el estado de movimiento de una rana pasada por parámetro que está saltando y los eventos de su aterrizaje. Si se indica que es la rana del jugador, ejecutará eventos extra
 void ActualizarSaltoRana(Rana *rana, bool isPlayer = true){
     // Durante la duración del salto, irá avanzando su velocidad en cada iteración distanciaSalto/duracionSalto
     if(HacerDuranteX(&(*rana).animSalto.temporizador,(*rana).animSalto.duracion)){
@@ -3298,7 +3300,7 @@ void ActualizarSaltoRana(Rana *rana, bool isPlayer = true){
     }
 }
 
-// La rana rota en base al sentido indicado
+// La rana bonus rota en base al sentido indicado
 // true -> Horario
 // false -> Antihorario
 void RotarRanaBonus(bool sentidoHorario = true){
@@ -3338,6 +3340,7 @@ void ReordenarColisionesRanaBonus(int colisiones[]){
     colisiones[1] = aux;
 }
 
+// Actualiza el estado del movimiento de la rana bonus
 void ActualizarMovimientoRanaBonus(){
     // Los indices de las colisiones de la rana bonus se almacenen aquí, 
     // siendo la colision izquierda la primera, la del medio donde debería estar ubicada la rana y la derecha la ultima
@@ -3407,6 +3410,7 @@ void ActualizarMovimientoRanaBonus(){
     }
 }
 
+// Actualiza el estado de la rana bonus
 void ActualizarEstadoRanaBonus(){
     switch (ranaBonus.estadoUpdate){
         case LIBRE:
@@ -3473,6 +3477,7 @@ void ActualizarEstadoAvanceNivel(){
     
 }
 
+// Actualización del estado del jugador actual
 void ActualizarEstadoJugador(){
     ComprobarColisionesJugador();
 
@@ -3497,6 +3502,7 @@ float CalcularTiempoPorAvance(float duracion, float distanciaTotal, float veloci
     return (duracion / (distanciaTotal/velocidad));
 }
 
+// Comprueba la dirección en la que se está moviendo una rana de la animación de la pantalla de introducción y actua en en consecuencia
 void ComprobarDireccionAnimacionRanaIntro(Rana *rana){
     // Si está en indice 0, cambia el sentido de la animacion y no comprueba nada mas
     if((*rana).sprite.indiceAnimacion == 0){
@@ -3508,7 +3514,7 @@ void ComprobarDireccionAnimacionRanaIntro(Rana *rana){
     }
 }
 
-//Lógica del avance en horizontal de la introducción
+//Lógica del avance en horizontal de la introducción. Contador indica el tiempo total transcurrido de la animación de la introducción
 void AvanceHorizontalIntro(int contador){
     // tiempoCorregido se usa como contador en esta funcion para poder determinar mas facilmente la duración de cada animacion de cada letra.
     // comprobando el valor con el contador para asegurar que se ejecuta en el tiempo que toca.
@@ -3552,7 +3558,7 @@ void AvanceHorizontalIntro(int contador){
 
 }
 
-//Lógica del avance en vertical de la introducción de todas las letras a la vez
+//Lógica del avance en vertical de la introducción de todas las letras a la vez. //Lógica del avance en horizontal de la introducción. Contador indica el tiempo total transcurrido de la animación de la introducción
 void AvanceVerticalIntro(int contador){
     for(int i = 0; i < maxLetrasTitulo; i++){
         //Se restan 10 centesimas a CalcularTiempoPorAvance para dar margen a la animación y funcione correctamente
@@ -3663,6 +3669,7 @@ void ActualizarEstadoIntro(){
     }
 }
 
+//Actualiza el estado de la animación de "Game Over"
 void ActualizarEstadoGameOver(){
     if(HacerDuranteX(&animGameOver.temporizador, animGameOver.duracion)){
         if(GetContadorFromTemp(animGameOver.temporizador, 1000) >= 1){
@@ -3688,6 +3695,7 @@ void ActualizarEstadoGameOver(){
     }
 }
 
+//Actualiza el estado de la pantalla de Juego
 void ActualizarEstadoJuego(){
     if(isAnimGameOver){
         ActualizarEstadoGameOver();
@@ -3709,6 +3717,7 @@ void ActualizarEstadoJuego(){
     
 }
 
+//Actualiza el estado de la ejecución del programa en función de la pantalla actual
 void ActualizarEstados(){
     switch(pantallaActual){
         case INTRO:
@@ -3721,6 +3730,8 @@ void ActualizarEstados(){
 }
 
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
+
+// Se encarga de dibujar el borde de coordenadas de un collider
 void DrawCollider(Collider collider){
     float coords[10] = {
         collider.P1.x,
@@ -3805,6 +3816,7 @@ void DrawText(char texto[], int longitud, float ubi_x, Align_V alineacion, float
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
 
+// Dibuja un rectángulo en base a las coordenadas de un collider y un colo en RGBa
 void DrawRect(Collider collider, Color color){
     float coords[10] = {
         collider.P1.x,
@@ -3920,11 +3932,12 @@ void DrawSprite(Sprite sprite, esat::SpriteTransform transform, bool isPlayer = 
     }
 }
 
+// Dibuja el rectangulo azul que representa el fondo del río
 void DibujarFondoRio(){
     DrawRect({{0,0},{VENTANA_X,(VENTANA_Y)/2}},{0,0,70});
 }
 
-//-- DIBUJADO PANTALLA DE INTRO --//
+// Dibuja los elementos del título en las pantallas INTRO, PUNTUACION y RANKING
 void DibujarTitulo(){
     for(int i = 0; i < maxLetrasTitulo; i++){
         DrawSprite(letrasTitulo[i].sprite);
@@ -3932,6 +3945,7 @@ void DibujarTitulo(){
     }
 }
 
+// Dibuja el texto de copyright de Konami
 void DibujarCopyrightKonami(){
     esat::DrawSetTextSize(FONT_SIZE);
     DrawText("KONAMI",0,MID,LEFT,FONT_SIZE*13,FONT_SIZE*6);
@@ -3940,6 +3954,7 @@ void DibujarCopyrightKonami(){
     esat::DrawSetTextSize(FONT_SIZE);
 }
 
+// Dibuja los elementos de la pantalla de introduccion
 void DibujarIntro(){
     if(HacerDuranteX(&animIntro.temporizador,animIntro.duracion)){
         // La los movimientos de la animacion se ejecutan en la actualización de estados.
@@ -3952,7 +3967,7 @@ void DibujarIntro(){
     }
 }
 
-//-- DIBUJADO PANTALLA DE PUNTUACIONES --//
+// Dibuja los elementos de la pantalla de puntuaciones
 void DibujarPuntuaciones(){
     // int limiteAparicion sirve para calcular cada cuanto tiempo deberá de aparecer cada texto comparandolo con el resultado de GetContadorFromTemp
     // Por cada limiteAparicion += 2 en este caso, tarda 2 segundos mas en aparecer que el if anterior;
@@ -3992,7 +4007,7 @@ void DibujarPuntuaciones(){
 
 }
 
-//-- DIBUJADO PANTALLA DE RANKING --//
+// Dibuja los elementos de la pantalla de ranking
 void DibujarRanking(){
     char scoreDigits[maxScoreDigits];
     if(HacerDuranteX(&animRanking.temporizador,animRanking.duracion)){
@@ -4055,7 +4070,7 @@ void DibujarRanking(){
     }
 }
 
-//-- DIBUJADO PANTALLA DE INSERT COIN --//
+// Dibuja los elementos de la pantalla de peticion de moneda
 void DibujarInsert(){
     if(HacerDuranteX(&animInsert.temporizador,animInsert.duracion)){
         DrawText("INSERT COIN",12,MID,CENT,FONT_SIZE*-2,0,{0,200,0});
@@ -4067,7 +4082,7 @@ void DibujarInsert(){
     }
 }
 
-//-- DIBUJADO PANTALLA DE START --//
+// Dibuja los elementos de la pantalla de inicio de juego / selección de modo de juego
 void DibujarStart(){
     DrawText("PUSH",4,MID,CENT,FONT_SIZE*-7,0);
     DrawText("START BUTTON",12,MID,CENT,FONT_SIZE*-2,0,{220,70,220});
@@ -4083,7 +4098,7 @@ void DibujarStart(){
     DrawText("ONE EXTRA FROG 20000 PTS",24,MID,CENT,FONT_SIZE*5,0,{200,0,0});
 }
 
-//-- DIBUJADO PANTALLA DE JUEGO --//
+// Dibuja los arbustos morados de las zonas seguras
 void DibujarArbustos(){
     int posInicial_X = 0;
     int posActual_X;
@@ -4123,12 +4138,14 @@ void DibujarZonasFinales(){
     }
 }
 
+// Dibuja las ranas finales de los nidos
 void DibujarRanasFinales(){
     for(int i = 0; i < maxRanasFinales; i++){
         DrawSprite(ranasFinales[i]);
     }
 }
 
+// Dibuja todos los elementos del río
 void DibujarRio(){
     for(int i = 0 ; i < ((int) FILA_RIO_T); i++){
         switch ((FilaRio) i){
@@ -4155,6 +4172,7 @@ void DibujarRio(){
     }
 }
 
+// Dibuja todos los vehículos
 void DibujarVehiculos(){
     for(int i = 0; i < maxCamiones; i++){
         if(i < maxCochesAmarillos){
@@ -4177,6 +4195,7 @@ void DibujarVehiculos(){
     }
 }
 
+// Dibuja el tiempo restante sobrante cuando se alcanza un nido
 void DibujarTiempoRestante(){
     char timeDigits[maxTimeDigits];
 
@@ -4195,10 +4214,12 @@ void DibujarTiempoRestante(){
     }
 }
 
+// Dibuja la mosca/croc trampa
 void DibujarMoscaCroc(){
     DrawSprite(moscaCroc.sprite);
 }
 
+// Dibuja las serpientes activas
 void DibujarSerpientes(){
     esat::SpriteTransform st;
     for(int i = 0; i < maxSerpientes; i++){
@@ -4216,6 +4237,7 @@ void DibujarSerpientes(){
     }
 }
 
+// Dibuja la nutria
 void DibujarNutria(){
     esat::SpriteTransform st;
     if(nutria.direccion == IZQUIERDA){
@@ -4234,16 +4256,19 @@ void DibujarNutria(){
     // printf("P1 %.2f | P2 %.2f\n",nutria.colisionAtaque.collider.P1.y,nutria.colisionAtaque.collider.P2.y);
 }
 
+// Dibuja el jugador
 void DibujarJugador(){
     DrawSprite(jugadores[jugadorActual].ranaJugador.sprite, true);
     DrawCollider(jugadores[jugadorActual].ranaJugador.finSalto);
 }
 
+// Dibuja la rana bonus
 void DibujarRanaBonus(){
     DrawSprite(ranaBonus.rana.sprite);
     DrawCollider(ranaBonus.rana.finSalto);
 }
 
+// Dibuja el rotulo de texto de GAME OVER y los rectángulos usados para el barrido de la animación de Game Over
 void DibujarGameOver(){
     if(isAnimGameOver){
         //Dibuja el fondo que ocupa el espacio de los 2 textos. Se dibuja primero para no taparlo
@@ -4255,6 +4280,7 @@ void DibujarGameOver(){
     }
 }
 
+// Ejecuta todas las funciones de dibujado necesarias para mostrar todos los elementos de la pantalla de juego
 void DibujarJuego(){
     //Entorno
     DibujarArbustos();
@@ -4433,7 +4459,8 @@ void DibujarEntorno(){
 
 } 
 
-//*** FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO ***///
+// FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO
+// Cada función libera de memoria los sprites correspondientes al propio nombre de la función
 
 void LiberarSpriteSheets(){
     esat::SpriteRelease(animMuerteSpriteSheet.spriteSheet);
@@ -4582,6 +4609,7 @@ void LiberarSprites(){
     LiberarSpritesBase();
     LiberarSpriteSheets();
 }
+
 /* FIN FUNCIONALIDADES*/
 
 /* INICIO MAIN */
