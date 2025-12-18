@@ -528,16 +528,17 @@ void InicializarCoordsSpriteSheet(SpriteSheet *spriteSheet, int spriteSheetCoord
     }
 }
 
-// Dado un sprite, devuelve su número de fila en posición vertical contando desde abajo
+// Dado un sprite, devuelve su número de fila en posición vertical contando desde abajo en relación a la ventana
 float GetFilaPantallaSprite(Sprite s){
     return (VENTANA_Y - s.collider.P1.y)/SPRITE_SIZE;
 }
-// Dado un sprite, devuelve su número de columna en posición horizontal contando desde la izquierda
+
+// Dado un sprite, devuelve su número de columna en posición horizontal contando desde la izquierda en relación a la ventana
 float GetColumnaPantallaSprite(Sprite s){
     return s.collider.P1.x/SPRITE_SIZE;
 }
 
-//Dada una coordenada (formato collider) actual y una esperada final, devuelve true si son iguales y false si son distintas
+// Dadas 2 estructuras collider, devuelve true si son iguales y false si son distintas
 bool AreColliderEqual(Collider c1, Collider c2){
     return (
         c1.P1.x == c2.P1.x && c1.P2.x == c2.P2.x &&
@@ -545,6 +546,7 @@ bool AreColliderEqual(Collider c1, Collider c2){
     );
 }
 
+// Dado un Sprite y un valor Direccion del borde que se quiere comprobar, devuelve true si el sprite sobrepasa dicho borde o false si no lo hace. 
 bool ComprobarSalidaVentanaSprite(Sprite sprite, Direccion direccion){
     bool isOut = false;
     switch(direccion){
@@ -565,6 +567,7 @@ bool ComprobarSalidaVentanaSprite(Sprite sprite, Direccion direccion){
     return isOut;
 }
 
+// Dado un Collider y un valor Direccion del borde que se quiere comprobar, devuelve true si el collider sobrepasa dicho borde o false si no lo hace. 
 bool ComprobarSalidaVentanaCollider(Collider *collider, Direccion direccion){
     bool isOut = false;
     switch(direccion){
@@ -745,6 +748,7 @@ void InicializarSpriteSheets(){
     );
 }
 
+// Los archivos de sprites en formato .png se deberían de ubicar en la ruta relativa ./Recursos/Imagenes/Sprites/*.png
 void InicializarSprites(){
     arbustoSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/ArbustoSprite.png");
     indicadorNivelSprite = esat::SpriteFromFile("./Recursos/Imagenes/Sprites/IndicadorNivelSprite.png");
@@ -753,7 +757,7 @@ void InicializarSprites(){
 }
 
 //*** MANEJO DE SPRITES/SPRITESHEETS ***/
-// Recupera el sprite del tipoAnimacion(Fila) e indiceAnimacion(Columna) de una spriteSheet
+// Recupera el sprite del tipoAnimacion(Fila) e indiceAnimacion(Columna) del SpriteSheet pasado como parámetro junto a su array de coordenadas 
 esat::SpriteHandle GetSpriteFromSheet(SpriteSheet spriteSheet, int spriteSheetCoords[], int tipoAnimacion, int indiceAnimacion){
     return (esat::SubSprite(
         spriteSheet.spriteSheet,
@@ -764,13 +768,10 @@ esat::SpriteHandle GetSpriteFromSheet(SpriteSheet spriteSheet, int spriteSheetCo
     ));
 }
 
-// ** USAR SOLO CUANDO SE DESEA CAMBIAR DE SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR **
-// Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen
-// del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que 
-// tiene el Sprite
+// USAR SOLO CUANDO SE DESEA CAMBIAR DE SPRITE NO PARA DIBUJAR UNA IMAGEN DE FORMA REGULAR
+// Dada una estructura SpriteSheet y una estructura Sprite, actualiza la imagen del Sprite en base al SpriteSheet y el tipoAnimacion(Fila) e indiceAnimacion(Columna) que tiene el Sprite asignados.
 void ActualizarSprite(SpriteSheet spriteSheet, int spriteSheetCoords[], Sprite *sprite){
-    // Mediante la variable local buffer, se asegura de liberar la imagen previa que tenia asignada el Sprite
-    // para prevernir leaks de memoria
+    // Mediante la variable local buffer, se asegura de liberar la imagen previa que tenía asignada el Sprite para prevenir leaks de memoria
     esat::SpriteHandle buffer = (*sprite).imagen;
     (*sprite).imagen = GetSpriteFromSheet(spriteSheet, spriteSheetCoords, (*sprite).tipoAnimacion,(*sprite).indiceAnimacion);
 
@@ -783,6 +784,7 @@ void ActualizarSprite(SpriteSheet spriteSheet, int spriteSheetCoords[], Sprite *
 // Dada una estructura SpriteSheet y una estructura Sprite.
 // Avanza el indice de animación del sprite en +2 para que el siguiente Sprite que guarde sea el correspondiente
 // al siguiente en su animación. Si el indice es mayor del total de coordenadas, lo reinicia 0 para volver a comenzar la animación
+// EL PARAMETRO int spriteSheetCoords[] NO SE USA EN LA FUNCIÓN PERO FALTÓ POR LIMPIAR AL CAMBIAR SU FUNCIONAMIENTO 
 void AvanzarSpriteAnimado(SpriteSheet spriteSheet, int spriteSheetCoords[], Sprite *sprite){
     // Avanza indice de animación. 
     (*sprite).indiceAnimacion += 2;
@@ -793,9 +795,11 @@ void AvanzarSpriteAnimado(SpriteSheet spriteSheet, int spriteSheetCoords[], Spri
     }
 }
 
+// USAR SOLO CUANDO SE DESEA RETROCEDER EL ÍNDICE DE ANIMACIÓN NO PARA ACTUALIZAR EL SPRITE O DIBUJARLO DE FORMA REGULAR
 // Dada una estructura SpriteSheet y una estructura Sprite.
 // Retrocede el indice de animación del sprite en -2 para que el siguiente Sprite que guarde sea el correspondiente
 // al anterior en su animación. Si el indice es menor de 0, lo reinicia al total de coordenadas para volver a comenzar la animación
+// EL PARAMETRO int spriteSheetCoords[] NO SE USA EN LA FUNCIÓN PERO FALTÓ POR LIMPIAR AL CAMBIAR SU FUNCIONAMIENTO 
 void RetrocederSpriteAnimado(SpriteSheet spriteSheet, int spriteSheetCoords[], Sprite *sprite){
     // Avanza indice de animación. 
     (*sprite).indiceAnimacion -= 2;
@@ -821,7 +825,7 @@ void RellocateSprite(Sprite *sprite, PuntoCoord nuevaUbicacion, SpriteSheet spri
 
 // Ubica el Sprite en el borde opuesto de la dirección que se indica ya que se asume que se ha escapado
 // por ese borde y se desea reubicar en el lugar contrario
-//   - *collider        -> El collider a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
+//   - *sprite        -> El sprite a actualizar. El P1 de un collider indica también el punto de inicio de dibujado
 //   - direccion        -> Indica en que dirección se moverá
 void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
     PuntoCoord nuevaUbicacion;
@@ -842,8 +846,7 @@ void RellocateSpriteOnBorderEscape(Sprite *sprite, Direccion direccion){
     RellocateSprite(&(*sprite), nuevaUbicacion);
 }
 
-// Version de RellocateSprite con un spriteSheet para usar el ancho del mismo en caso de estar moviendo un sprite sin imagen 
-// (Colision de ataque de la nutria por ejemplo)
+// Version de RellocateSprite con un collider en su lugar
 void RellocateCollider(Collider *collider, PuntoCoord nuevaUbicacion){
     (*collider).P2 = {nuevaUbicacion.x + ((*collider).P2.x-(*collider).P1.x), nuevaUbicacion.y + ((*collider).P2.y-(*collider).P1.y)};
     (*collider).P1 = nuevaUbicacion;
@@ -1018,6 +1021,11 @@ void InicializarTitulo(bool isIntro = false){
 }   
 
 //Comprueba si el grupo de obstaculos puede generarse sin problemas en su fila correspondiente
+// – int posicionGrupo -> Indica la posición relativa del grupo de obstaculo, es decir si los grupos son de 3, indicará un número del 0 al 2
+// – int columna -> Indica la posición absoluta del obstáculo, es decir, en este caso el índice del array
+// – int longitud -> Indica lo grande que es el grupo
+
+// Pensado para la inicialización de filas de tortugas y troncodrilos
 bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
     return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
 }
@@ -1067,6 +1075,7 @@ void InicializarMoscaCroc(){
     ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
 }
 
+// Calcula y asigna de forma aleatoria entre 3 posibilidades la velocidad de movimiento y de animación la serpiente pasada por parámetro
 void AsignarVelocidadAleatoriaSerpiente(Serpiente *serpiente){
     int varianteVelocidad = GenerarNumeroAleatorio(3)+1;
     (*serpiente).animMovimiento.duracion = 150-(varianteVelocidad*20);
@@ -1109,7 +1118,7 @@ void SpawnSerpiente(Serpiente *serpiente){
     }
 }
 
-// Inicializar valores por defecto de las serpientes y las genera en caso de ser visibles
+// Inicializa valores por defecto de las serpientes y las genera en caso de ser visibles
 void InicializarSerpientes(){
     for(int i = 0; i < maxSerpientes; i++){
         serpientes[i].direccion = DERECHA;
@@ -1271,6 +1280,7 @@ void SpawnRanaBonus(){
     ranaBonus.rana.sprite.indiceAnimacion = (int) ranaBonus.rana.isJumping;
 }
 
+// Inicializar valores por defecto de la rana bonus
 void InicializarRanaBonus(){
     ranaBonus.puntuacion = 200;
 
@@ -1854,6 +1864,7 @@ void InicializarJugadores(){
     jugadorActual = 0;
 }
 
+// Inicializa todo lo necesario para empezar un nivel en base al jugador actual y el nivel de dificultad que tenga almacenado
 void InicializarNivel(){
     // Inicialización de cosas interactivas durante la ejecución del nivel
     InicializarRio();
@@ -1871,8 +1882,7 @@ void InicializarNivel(){
 
 //*** INICIO DE ACCIONES DE LOS OBJETOS Y JUGADORES***//
 
-// Dada una rana con posicion de finSalto, comprueba si puede realizar ese salto
-// El comportamiento cambiará en función de si se indica que es una rana de jugador o bonus
+// Dada la rana del jugador con posicion de finSalto, comprueba si puede realizar ese salto y devuelve el resultado booleano
 bool IsSaltoRanaJugadorPosible(Rana rana){
     return (
         rana.finSalto.P1.x >=0 && rana.finSalto.P2.x <= VENTANA_X &&
@@ -1880,7 +1890,7 @@ bool IsSaltoRanaJugadorPosible(Rana rana){
     );
 }
 
-// Actualiza la posición de la zona de fina de salto según la direccion indicada.
+// Actualiza la posición de la zona de fina de salto según la direccion indicada y actualiza el valor que indica que la rana está saltando.
 // Además, si es el jugador se encarga de comprobar si el salto es posible
 void IniciarSaltoRana(Rana *rana, Direccion newDireccion, bool isPlayer = true){
     (*rana).direccion = newDireccion;
@@ -1933,6 +1943,7 @@ void IniciarSaltoRana(Rana *rana, Direccion newDireccion, bool isPlayer = true){
     }
 }
 
+// Cambia los valores del jugador actual necesarios para iniciar la animación de muerte e indicar su fallecimiento
 void MatarJugador(){
     jugadores[jugadorActual].ranaJugador.sprite.isActive = false;
     jugadores[jugadorActual].ranaJugador.sprite.tipoAnimacion = 0;
@@ -2018,6 +2029,8 @@ void ComprobarCreditos(){
 }
 
 //ManejoVidasJugador
+
+//Establece los valores por defecto de la animación de Game Over 
 void InicializarGameOver(){
     cronometro.tiempoRestante = cronometro.contador;
     cronometro.isBarraParada = true;
@@ -2039,6 +2052,7 @@ void InicializarGameOver(){
     isAnimGameOver = true;
 }
 
+//Suma la cantidad de vidas pasadas por parámetro al jugador actual. También comprueba que no se pase del límite de vidas máximo establecido
 void SumarVidasJugador(int vidas){
     jugadores[jugadorActual].vidas += vidas;
     if(jugadores[jugadorActual].vidas >= 10){
@@ -2046,6 +2060,7 @@ void SumarVidasJugador(int vidas){
     }
 }
 
+//Resta la cantidad de vidas pasadas por parámetro al jugador actual. También comprueba que no se establezca el valor en negativo y los posibles eventos que puedan ocurrir al perder una vida
 void RestarVidasJugador(int vidas){
     jugadores[jugadorActual].vidas -= vidas;
     if(jugadores[jugadorActual].vidas <= 0){
@@ -2077,7 +2092,7 @@ void RestarVidasJugador(int vidas){
     }
 }
 
-//Manejo puntuacion jugador
+//Aumenta la puntuación del jugador actual la cantidad pasada por parámetro. Comprueba que no se pase del límite máximo establecido y ejecuta posibles eventos relacionados con el aumento de puntuación
 void SumarPuntosJugador(int puntos){
     jugadores[jugadorActual].puntuacion += puntos;
     jugadores[jugadorActual].puntuacion_VE += puntos;
@@ -2092,7 +2107,7 @@ void SumarPuntosJugador(int puntos){
     }
 }
 
-//Manejo Creditos
+//Aumenta la cantidad de creditos en base a la cantidad pasada por parámetro. Comprueba que no se pase del límite máximo establecido
 void SumarCreditos(int creditos){
     credits += creditos;
     if(credits >= 99){
@@ -2100,6 +2115,7 @@ void SumarCreditos(int creditos){
     }
 }
 
+//Disminuye la cantidad de creditos en base a la cantidad pasada por parámetro. Comprueba que no se establezca un número negativo
 void RestarCreditos(int creditos){
     credits -= creditos;
     if(credits <= 0){
@@ -2117,6 +2133,7 @@ void SumarPuntosAvanceVertical(){
     }
 }
 
+//Disminuye la cantidad de puntos en base a la cantidad pasada por parámetro. Comprueba que no se establezca un número negativo
 void RestarPuntosJugador(int puntos){
     jugadores[jugadorActual].puntuacion -= puntos;
     jugadores[jugadorActual].puntuacion_VE -= puntos;
@@ -2130,6 +2147,7 @@ void RestarPuntosJugador(int puntos){
     }
 }
 
+//Realiza los cambios necesarios para indicar que va a inicializar la animación de avance de nivel
 void InicializarAvanceNivel(){
     jugadores[jugadorActual].ranaJugador.sprite.isVisible = false;
     jugadores[jugadorActual].ranaJugador.sprite.isActive = false;
@@ -2141,6 +2159,7 @@ void InicializarAvanceNivel(){
     isAnimAvanceNivel = true;
 }
 
+//Ejecuta el avance de nivel almacenando la información en el jugador actual
 void AvanzarNivel(){
     // Suma puntos, pero si al sumar se pasa del maximo de puntos, entonces se asegura de asignar el valor máximo
     SumarPuntosJugador(1000);
@@ -2162,6 +2181,8 @@ void AvanzarNivel(){
 }
 
 //*** DETECCIÓN INPUT DEL JUGADOR ***//
+
+//Recoge el Input del teclado del usuario y en función de la pantalla en la que se encuentre, establece las acciones que puede realizar en cada momento
 void DetectarControles(){
     switch (pantallaActual){
         case INTRO:
