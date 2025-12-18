@@ -475,6 +475,7 @@ bool HacerDuranteX(float *temp, float x){
 void GenerarSemillaAleatoria(){
     srand(time(NULL)); 
 }
+
 //Genera un número del 0 al límite indicado -1
 int GenerarNumeroAleatorio(int limite){
     return (rand()%limite);
@@ -563,6 +564,7 @@ bool ComprobarSalidaVentanaSprite(Sprite sprite, Direccion direccion){
 
     return isOut;
 }
+
 bool ComprobarSalidaVentanaCollider(Collider *collider, Direccion direccion){
     bool isOut = false;
     switch(direccion){
@@ -1020,7 +1022,6 @@ bool CabeGrupoObstaculos(int posicionGrupo, int columna, int longitud){
     return posicionGrupo == 0 && columna + longitud < VENTANA_COLUMNAS || posicionGrupo != 0 && columna + (longitud - posicionGrupo) < VENTANA_COLUMNAS;
 }
 
-
 // Inicializar valores de las ranas que aparecen al llegar a una zona final donde:
 // filaRio      -> Indica la fila del rio en la que se debe ubicar en Y
 void InicializarRanasFinales(FilaRio filaRio){
@@ -1065,7 +1066,6 @@ void InicializarMoscaCroc(){
     // moscaCroc.sprite.collider = ;
     ActualizarSprite(moscaCrocSpriteSheet, moscaCrocSpriteSheet_Coords, &moscaCroc.sprite);
 }
-
 
 void AsignarVelocidadAleatoriaSerpiente(Serpiente *serpiente){
     int varianteVelocidad = GenerarNumeroAleatorio(3)+1;
@@ -2045,6 +2045,7 @@ void SumarVidasJugador(int vidas){
         jugadores[jugadorActual].vidas = 10;
     }
 }
+
 void RestarVidasJugador(int vidas){
     jugadores[jugadorActual].vidas -= vidas;
     if(jugadores[jugadorActual].vidas <= 0){
@@ -2098,6 +2099,7 @@ void SumarCreditos(int creditos){
         credits = 99;
     }
 }
+
 void RestarCreditos(int creditos){
     credits -= creditos;
     if(credits <= 0){
@@ -2704,7 +2706,6 @@ void ActualizarMovimientoCollider(Collider *collider, Direccion direccion, float
     }
 }
 
-
 //Comprueba si la tortuga se está sumergiendo o no (Direccion derecha o inversa de la animacion y deteccion de colision) 
 void ComprobarSumersionTortuga(Tortuga *tortuga){
     int preSumersionCoord = (tortugaSpriteSheet.coordsAnim/2)-2;
@@ -3276,7 +3277,6 @@ void ActualizarSaltoRana(Rana *rana, bool isPlayer = true){
     }
 }
 
-
 // La rana rota en base al sentido indicado
 // true -> Horario
 // false -> Antihorario
@@ -3642,7 +3642,6 @@ void ActualizarEstadoIntro(){
     }
 }
 
-
 void ActualizarEstadoGameOver(){
     if(HacerDuranteX(&animGameOver.temporizador, animGameOver.duracion)){
         if(GetContadorFromTemp(animGameOver.temporizador, 1000) >= 1){
@@ -3699,7 +3698,6 @@ void ActualizarEstados(){
             break;
     }
 }
-
 
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
 void DrawCollider(Collider collider){
@@ -3758,6 +3756,7 @@ void DrawText(char texto[], int longitud, float ubi_y, Align_H alineacion, float
     esat::DrawSetFillColor(color.r,color.g,color.b,color.a);
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
+
 // Muestra el texto indicado por pantalla con las características proporcionadas.
 //  -texto -> Texto a mostrar
 //  -longitud -> Longitud del texto para calcular correctamente las alineaciones
@@ -3920,7 +3919,6 @@ void DibujarCopyrightKonami(){
     esat::DrawSetTextSize(FONT_SIZE);
 }
 
-
 void DibujarIntro(){
     if(HacerDuranteX(&animIntro.temporizador,animIntro.duracion)){
         // La los movimientos de la animacion se ejecutan en la actualización de estados.
@@ -4064,7 +4062,6 @@ void DibujarStart(){
     DrawText("ONE EXTRA FROG 20000 PTS",24,MID,CENT,FONT_SIZE*5,0,{200,0,0});
 }
 
-
 //-- DIBUJADO PANTALLA DE JUEGO --//
 void DibujarArbustos(){
     int posInicial_X = 0;
@@ -4090,12 +4087,14 @@ void DibujarFilaRio(Tortuga array[]){
         DrawSprite(array[i].sprite);
     }
 }
+
 // Dibujar la fila del rio pasada por parametro
 void DibujarFilaRio(Troncodrilo array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         DrawSprite(array[i].sprite);
     }
 }
+
 // Dibujar las zonas finales donde deben acabar las ranas del jugador para puntuar
 void DibujarZonasFinales(){
     for(int i = 0; i < maxZonasFinales; i++){
