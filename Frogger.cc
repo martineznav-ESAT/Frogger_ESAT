@@ -9,6 +9,8 @@
 #include <stdio.h>
 
 /* Enums */
+
+//Facilita la gestión de las pantallas, cambiar entre ellas y acciones posibles en las mismas
 enum Pantalla {
     INTRO,
     PUNTUACIONES,
@@ -18,6 +20,7 @@ enum Pantalla {
     JUEGO
 };
 
+// Principalmente utilizado para facilitar los movimientos de los elementos, detección de colisiones y cambios de sprites
 enum Direccion {
     ARRIBA,
     DERECHA,
@@ -25,17 +28,21 @@ enum Direccion {
     IZQUIERDA
 };
 
+// Facilita el uso de una de las formas de uso de la función propia de dibujado de texto llamada DrawText. Indica la alineación del texto en horizontal
 enum Align_H{
     LEFT,
     CENT,
     RIGHT,
 };
+
+// Facilita el uso de una de las formas de uso de la función propia de dibujado de texto llamada DrawText. Indica la alineación del texto en vertical
 enum Align_V{
     TOP,
     MID,
     BOT
 };
 
+// Ayuda a determinar sobre qué fila del río se está trabajando para poder actuar en consecuencia. El propio valor del enum también se puede utilizar para indicar por ejemplo una coordenada en Y o en caso de FILA_RIO_T para indicar el total de filas de río
 enum FilaRio{
     FILA_RIO_0,
     FILA_RIO_1,
@@ -46,8 +53,7 @@ enum FilaRio{
     FILA_RIO_T
 };
 
-// Facilita la selección del indiceAnimacion 
-// de los vehiculos para dibujar el vehiculo deaseado
+// Facilita la selección del valor indiceAnimacion de los vehículos para dibujar el vehículo. Diferenciación de vehículo.
 enum TipoVehiculo {
     COCHE_AMARILLO,
     TRACTOR,
@@ -57,38 +63,46 @@ enum TipoVehiculo {
     CAMION_BACK
 };
 
+// Indica el estado de la estructura MoscaCroc para gestionar su actualización de estado.
 enum EstadoMoscaCroc{
     MOSCA,
     CROC,
     PUNTOS_MC //Puntos MoscaCroc
 };
 
+// Indica el estado de la estructura RanaBonus para gestionar su actualización de estado.
 enum EstadoRanaBonus{
     LIBRE,
     ANCLADA,
     PUNTOS_RB //Puntos RanaBonus
 };
 
+// Indica el modo de juego seleccionado por el usuario. Sirve para la gestión de variaciones de eventos como por ejemplo la decisión de cuándo termina una partida
 enum Gamemode{
     NORMAL_SINGLE,
     NORMAL_MULTI,
 };
 
 /* STRUCTS */
+
+// Estructura que almacena 2 números flotantes pensados para indicar coordenadas ‘x’ e ‘y’ en un plano de 2 dimensiones como es la pantalla de juego.
 struct PuntoCoord{
     float x = 0, y = 0;
 };
 
+// Estructura que almacena los valores en formato RGBa de un color. El valor transparencia  alpha “a” por defecto será 255 para que sea visible.
 struct Color{
     unsigned char r, g, b, a = 255;
 };
 
+// Se encarga de almacenar 2 estructuras PuntoCoord con las que ser capaz de ubicar un rectángulo de coordenadas. Principalmente utilizado para la detección de colisiones aunque por su naturalidad también puede ser utilizado para determinar posiciones o dibujar rectángulos
 struct Collider{
     // P1 Tambien sirve como ubicación
     PuntoCoord P1 = {0.0f,0.0f};
     PuntoCoord P2 = {48.0f,48.0f};
 };
 
+// Estructura que se compone de los valores necesarios para manejar la subdivisión de una imagen en formato SpriteSheet 
 struct SpriteSheet{
     //SpriteSheet
     esat::SpriteHandle spriteSheet;
@@ -102,6 +116,7 @@ struct SpriteSheet{
     int spriteWidth,spriteHeight;
 };
 
+// Estructura que se compone de los valores necesarios para manejar un sprite junto a sus posibles animaciones, visibilidad y el estado de colisiones.
 struct Sprite{
     esat::SpriteHandle imagen;
     Collider collider;
@@ -113,60 +128,72 @@ struct Sprite{
 
 // Contiene información sobre el control de tiempo de una animación
 // duracion     -> La duración total de la animacion antes de reiniciarse/finalizar
-// velocidad    -> El tiempo que tarda en avanzar de frame. Se calcula dividiendo la duracion entre la cantidad de frames de la animacion 
+// velocidad    -> El tiempo que tarda en avanzar de frame. Se calcula dividiendo la duracion entre la cantidad de frames de la animacion. Este es el uso general, pero puede ser utilizado de forma creativa
 // temporizador -> Utilizado por la funcion HacerCadaX/HacerDuranteX. Contiene la información del reloj de sistema necesaria para realizar correctamente el contador. Importante igualar a last_time una única vez antes de usar el contador
 struct Animacion{
     // La duración total de la animacion antes de reiniciarse/finalizar
     float duracion; 
     // El tiempo que tarda en avanzar de frame. Se calcula dividiendo la duracion entre la cantidad de frames de la animacion 
     float velocidad; 
-    // Utilizado por la funcion HacerCadaX/HacerDuranteX. Contiene la información del reloj de sistema necesaria para realizar correctamente el contador. Importante igualar a last_time una única vez antes de usar el contador
+    // Pensado para el uso de la función HacerCadaX/HacerDuranteX. 
+    // Contiene la información del reloj de sistema necesaria para realizar correctamente el contador. Importante igualar a global last_time una única vez antes de usar el contador
     float temporizador = 0;
 };
 
 // Contiene información sobre el contador que calcula los puntos 
 // extra por tiempo y el limite del mismo que tienes para llegar al final con una rana
 struct Cronometro{
+    // Estructura de animación para gestión del tiempo
     Animacion animCronometro;
-    int contador = 60, tiempoRestante = 60;
-
-    // BarraParada indica si la barra debe continuar avanzando o no
+    // Almacena el valor actual del contador en décimas de segundo (ds)
+    int contador = 60;
+    // Almacena el valor en (ds) a mostrar cuando se alcanza una meta para que el contador pueda seguir funcionando sin sobrescribirse
+    int tiempoRestante = 60;
+    // Indica si la barra debe continuar avanzando o no, o lo que es lo mismo, si debe actualizar el estado del cronómetro. No para el tiempo.
     bool isBarraParada = false;
-
-    // TiempoVisible indica si debe mostrarse el tiempo restante con el
-    // que se ha calculado la puntuacion extra
+    // Indica si debe mostrarse el tiempo restante con el que se ha calculado la puntuación extra
     bool isTiempoVisible = false;
 };
 
+// Almacena los valores necesarios para el comportamiento de una rana. Independientemente del tipo de rana
 struct Rana{
+    // Indica la dirección a la que apunta
 	Direccion direccion;
+    // Estructura del sprite a mostrar
 	Sprite sprite;
+    // Indica si está saltando o no
     bool isJumping = false;
-    // Se encarga de conservar la coordenada final en la
-    // que debe aterrizar la rana para asegurar su correcto movimiento
+    // Se encarga de conservar la coordenada final en la que debe aterrizar al saltar para asegurar su correcto movimiento y comprobar la validez del salto.
     Collider finSalto;
+    // Indica la distancia del salto en píxeles. Sirve para calcular la velocidad de su animación de salto en base a su duración.
     int distanciaSalto;
+    // Estructura de animación que almacena la información necesaria para realizar el salto en los tiempos correspondientes
     Animacion animSalto;
 };
 
+// Almacena la información necesaria para gestionar un jugador, tanto para su movimiento como su puntuación y nivel actual.
 struct Jugador{
+    // Estructura de la rana que corresponde al jugador
     Rana ranaJugador;
     //Puntuaciones -> Actual y la que tiene en cuenta la posible vida extra
     int puntuacion = 0, puntuacion_VE = 0;
     //Vidas actuales del jugador
     int vidas = 0;
-    // Numero del nivel actual
-    int nivelActual = 1;
-    // Ultima fila alcanzada en el nivel actual
-    int filaPuntuacion = 0;
+    // Número del nivel actual (max 255)
+    unsigned char nivelActual = 1;
     // Dificultad actual del nivel (1-5)
     unsigned char dificultadActual = 1;
+    // Ultima fila alcanzada en el nivel actual
+    int filaPuntuacion = 0;
     // Valores de animación de la muerte del jugador
     Animacion animMuerte;
 };
 
+// Almacena la información necesaria para gestionar la rana bonus, tanto su movimiento como su puntuación y estado actual.
 struct RanaBonus{
+    // Estructura de la rana que corresponde al jugador
     Rana rana;
+    // Puntuación que ofrece al jugador al ser rescatada
     int puntuacion = 200;
     Direccion direccionRotacion;
     bool isBug;
@@ -2084,8 +2111,10 @@ void AvanzarNivel(){
         jugadores[jugadorActual].dificultadActual += 1;
     }
 
-    // En la UI mostrará hasta un máximo de 10 niveles aunque el valor siga aumentando
-    jugadores[jugadorActual].nivelActual++;
+    // En la UI mostrará hasta un máximo de 10 niveles aunque el valor siga aumentando hasta un valor máximo de 255
+    if(jugadores[jugadorActual].nivelActual < 255){
+        jugadores[jugadorActual].nivelActual++;
+    }
 
     cronometro.isTiempoVisible = false;
     InicializarNivel();
@@ -2479,12 +2508,17 @@ bool ComprobarFilaActualYAdyacentes(Sprite sprite, int fila){
 void DetectarColisionRanaBonusRanaFin(){
     int indice = 0;
     bool isColision = false;
-    do{
-        isColision = (
-            ranasFinales[indice].isVisible && 
-            DetectarColision(ranaBonus.rana.sprite.collider, ranasFinales[indice].collider)
-        );
-    } while (++indice < maxRanasFinales && !isColision);
+
+    //Si está en colisión con la rana del jugador, pero esta esta muriendo, la comprobación de la colisión con las ranas finales no se hará
+    if(!(DetectarColision(jugadores[jugadorActual].ranaJugador.sprite.collider,ranaBonus.rana.sprite.collider) && !jugadores[jugadorActual].ranaJugador.sprite.isActive)){
+        do{
+            isColision = (
+                
+                ranasFinales[indice].isVisible && 
+                DetectarColision(ranaBonus.rana.sprite.collider, ranasFinales[indice].collider)
+            );
+        } while (++indice < maxRanasFinales && !isColision);
+    }
     
     if(isColision){
         indice--;
