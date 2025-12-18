@@ -191,66 +191,104 @@ struct Jugador{
 
 // Almacena la información necesaria para gestionar la rana bonus, tanto su movimiento como su puntuación y estado actual.
 struct RanaBonus{
-    // Estructura de la rana que corresponde al jugador
+    // Estructura de la rana que corresponde a la rana bonus
     Rana rana;
     // Puntuación que ofrece al jugador al ser rescatada
     int puntuacion = 200;
+    // Almacena el valor de dirección previo a empezar a rotar para saber hacia dónde continuar
     Direccion direccionRotacion;
+    // Indica si debe dibujarse con la paleta de colores de bug o la normal
     bool isBug;
+    // Indica el estado de actualización de la rana bonus
     EstadoRanaBonus estadoUpdate;
-    Animacion accionarSalto, animPuntos;
+    // Almacena la información de cada cuanto tiempo debe de saltar por su cuenta o en su defecto, cada cuanto tiempo debe ejecutar una acción de rotación ya que comparten tiempo de ejecución
+    Animacion accionarSalto;
+    // Almacena la información de cuánto tiempo debe permanecer en pantalla mostrándose como la puntuación que ha ofrecido al jugador
+    Animacion animPuntos;
+    // Almacena el valor del índice del array de troncos del tronco sobre el que se encuentra la rana bonus para gestionar us comprobación de salto e invocación
     int indiceTroncoFin = 0;
 };
 
+// Almacena la información necesaria para la gestión e inicialización de un vehículo.
 struct Vehiculo{
+    // Indica que tipo de vehículo es para su gestión
     TipoVehiculo tipoVehiculo;
+    // Indica la dirección de movimiento
     Direccion direccion;
+    // Información del sprite a mostrar
 	Sprite sprite;
+    // Velocidad de movimiento del vehículo (px/frame)
     float velocidadMovimiento;
 };
 
+// Almacena la información necesaria para la gestión e inicialización de un tronco/cocodrilo.
 struct Troncodrilo{
+    // Indica la dirección de movimiento
     Direccion direccion;
+    // Información del sprite a mostrar
 	Sprite sprite;
+    // Velocidad de movimiento del tronco/cocodrilo (px/frame)
     float velocidadMovimiento;
-    // Si no es un tronco, será un cocodrilo
+    // Indica si es o no un tronco. Si no es un tronco, será un cocodrilo
     bool isTronco = true;
+    // Almacena cada cuanto tiempo debe abrir y cerrar la boca en caso de ser un cocodrilo
     Animacion animBocaCocodrilo;
 };
 
+// Almacena la información necesaria para la gestión e inicialización de una unidad de tortuga.
 struct Tortuga{
+    // Indica la dirección de movimiento
     Direccion direccion;
+    // Información del sprite a mostrar
 	Sprite sprite;
+    // Velocidad de movimiento de la tortuga (px/frame)
     float velocidadMovimiento;
-    // Indica si la tortuga tiene la posibilidad de hundirse o no
-    bool isSumergible = true, isSumergiendo = true;
+    // Indica si la tortuga tiene la habilidad de sumergirse o no
+    bool isSumergible = true;
+    // Indica si la tortuga se está sumergiendo o no para la gestión de la animación de la misma
+    bool isSumergiendo = true;
+    // Almacena la información de la animación de hundimiento
     Animacion animSumergir;
 };
 
-struct MoscaCroc{
-	Sprite sprite;
-    Animacion animMoscaCroc;
-    Animacion animPuntos;
-    int puntuacion = 200;
-    // Si no es una mosca bonus, será una trampa Croc (Llamado Croc para diferenciar del cocodrilo del rio)
-    // Valores Estado
-    EstadoMoscaCroc estado = MOSCA;
-};
-
+// Almacena la información necesaria para la gestión e inicialización de una serpiente
 struct Serpiente{
+    // Indica la dirección de movimiento
     Direccion direccion;
+    // Información del sprite a mostrar
 	Sprite sprite;
+    // Almacena la información de la animación de movimiento de la serpiente junto a su velocidad de movimiento
     Animacion animMovimiento;
-    
-    // True indica que la animación avanza. False indica que retrocede
+    // Indica la dirección de la animación de movimiento. 
+    // True -> La animación avanza | False -> La animación retrocede
     bool direccionAnimacion;
 };
 
+// Almacena la información necesaria para la gestión e inicialización de la nutria.
 struct Nutria{
+    // Indica la dirección de movimiento
     Direccion direccion;
+    // Información del sprite a mostrar
 	Sprite sprite;
+    // Almacena la información de la animación de ataque junto a su velocidad de movimiento
     Animacion animMovimiento;
+    // Almacena la información de las coordenadas donde efectuará su ataque
+    // No dibuja nada, pero su información de isActive es útil para determinar proximidad y zona de ataque activa o inactiva
     Sprite colisionAtaque;
+};
+
+// Almacena la información necesaria para la gestión e inicialización de la mosca bonus y la boca de cocodrilo. Es la misma siempre pues sólo puede aparecer una de las 2 en pantalla
+struct MoscaCroc{
+    // Información del sprite a mostrar y si es ofensivo o no
+	Sprite sprite;
+    // Almacena la información de cada cuanto tiempo debe de aparecer uno de los 2 y en caso de la boca del cocodrilo, el atributo de velocidad indica cuánto tarda en salir la cabeza por completo
+    Animacion animMoscaCroc;
+    // Indica, en caso de obtener los puntos extra de la mosca, cuánto tiempo debe permanecer en pantalla la puntuación adquirida
+    Animacion animPuntos;
+    // Puntos que ofrece la mosca al ser obtenida
+    int puntuacion = 200;
+    // Almacena el estado de actualización.
+    EstadoMoscaCroc estado = MOSCA;
 };
 
 /* FIN STRUCTS */
@@ -263,7 +301,7 @@ const int VENTANA_COLUMNAS = VENTANA_X/SPRITE_SIZE +1, VENTANA_FILAS = VENTANA_Y
 
 //-- FPS
 const unsigned char FPS=60;
-double current_time,last_time;
+double last_time;
 
 //-- Prototipado
 bool areCollidersVisible = false;
@@ -316,7 +354,7 @@ SpriteSheet nutriaSpriteSheet;
 int nutriaSpriteSheet_Coords[4];
 
 //-- Sprites | Declaración de los handles cuyos sprites: 
-//  -Siempre serán iguales (Sin animación ni acceso multiple como los vehiculos)
+//  -Siempre serán iguales (Sin animación ni acceso múltiple como el indicador de vidas)
 //  -No necesitan collider
 esat::SpriteHandle arbustoSprite;
 esat::SpriteHandle indicadorNivelSprite;
@@ -340,7 +378,7 @@ Pantalla pantallaActual = INTRO;
 //Animaciones
 
 Animacion animIntro = {37000,1000,0};
-//Booleana para detectar si la animacion vertical ha empezado
+//Booleana para detectar si la animacion vertical de la introducción ha empezado
 bool isAnimIntroVIniciada = false;
 Animacion animPuntuaciones = {10000,1000,0};
 Animacion animRanking = {6000,1000,0};
@@ -398,6 +436,7 @@ RanaBonus ranaBonus;
 
 /* FUNCIONALIDADES */
 void ControlFPS(){
+    double current_time;
     do{
         current_time = esat::Time();
     }while((current_time-last_time)<=1000.0/FPS);
