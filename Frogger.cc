@@ -8,6 +8,9 @@
 #include <time.h>
 #include <stdio.h>
 
+// @Author Jonathan Martínez Navarro
+// @Owner Escuela Superior de Arte y Tecnología - ESAT
+
 /* Enums */
 
 //Facilita la gestión de las pantallas, cambiar entre ellas y acciones posibles en las mismas
@@ -3731,7 +3734,7 @@ void ActualizarEstados(){
 
 //*** FUNCIONES DE DIBUJADO DE ELEMENTOS EN PANTALLA ***///
 
-// Se encarga de dibujar el borde de coordenadas de un collider
+// Se encarga de dibujar el borde de coordenadas de un collider pasado por parámetro
 void DrawCollider(Collider collider){
     float coords[10] = {
         collider.P1.x,
@@ -3816,7 +3819,7 @@ void DrawText(char texto[], int longitud, float ubi_x, Align_V alineacion, float
     esat::DrawText(ubicacion.x, ubicacion.y,texto);
 }
 
-// Dibuja un rectángulo en base a las coordenadas de un collider y un colo en RGBa
+// Dibuja un rectángulo en base a las coordenadas de un collider y un color en RGBa
 void DrawRect(Collider collider, Color color){
     float coords[10] = {
         collider.P1.x,
@@ -3954,7 +3957,7 @@ void DibujarCopyrightKonami(){
     esat::DrawSetTextSize(FONT_SIZE);
 }
 
-// Dibuja los elementos de la pantalla de introduccion
+// Dibuja los elementos de la pantalla de introduccion y el cambio automático de pantalla
 void DibujarIntro(){
     if(HacerDuranteX(&animIntro.temporizador,animIntro.duracion)){
         // La los movimientos de la animacion se ejecutan en la actualización de estados.
@@ -4117,21 +4120,21 @@ void DibujarArbustos(){
     }
 }
 
-// Dibujar la fila del rio pasada por parametro
+// Dibuja la fila del rio pasada por parametro
 void DibujarFilaRio(Tortuga array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         DrawSprite(array[i].sprite);
     }
 }
 
-// Dibujar la fila del rio pasada por parametro
+// Dibuja la fila del rio pasada por parametro
 void DibujarFilaRio(Troncodrilo array[]){
     for(int i = 0; i < VENTANA_COLUMNAS; i++){
         DrawSprite(array[i].sprite);
     }
 }
 
-// Dibujar las zonas finales donde deben acabar las ranas del jugador para puntuar
+// Dibuja las zonas finales donde deben acabar las ranas del jugador para puntuar
 void DibujarZonasFinales(){
     for(int i = 0; i < maxZonasFinales; i++){
         DrawSprite(zonasFinales[i]);
@@ -4460,7 +4463,7 @@ void DibujarEntorno(){
 } 
 
 // FUNCIONES DE LIBERADO DE MEMORIA AL TERMINAL EL PROCESO
-// Cada función libera de memoria los sprites correspondientes al propio nombre de la función
+// Cada función libera de memoria los SpriteHandle correspondientes al propio nombre de la función
 
 void LiberarSpriteSheets(){
     esat::SpriteRelease(animMuerteSpriteSheet.spriteSheet);
