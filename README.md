@@ -8,6 +8,7 @@ Versión del videojuego arcade clásico de Konami FROGGER desarrollada por Jonat
 
 -- Consumo medio de memoria RAM -> 45MB
 
+-- Documentación completa [Aquí](https://docs.google.com/document/d/1ABFR6hCPOXp4VWNdjkYMkrX3eAv9eGyKG3wn6U2cKDc/edit?usp=sharing)
 
 CONTROLES:
 
